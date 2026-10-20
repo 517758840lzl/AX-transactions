@@ -1,11 +1,17 @@
 export type Gender = 'female' | 'male' | 'secret';
 export type Direction = 'out' | 'in';
 export type Currency = 'USD' | 'EUR' | 'CNY';
+export type BookLocale = 'zh' | 'en';
+
+export type AccountKind = 'bank' | 'cash' | 'card' | 'other';
+
+export const accountKindOrder: AccountKind[] = ['bank', 'cash', 'card', 'other'];
 
 export type Account = {
     id: string;
     name: string;
     opening: number;
+    kind: AccountKind;
 };
 
 export type Entry = {
@@ -20,10 +26,55 @@ export type Entry = {
     checked: boolean;
 };
 
+export type EntryTemplate = {
+    id: string;
+    title: string;
+    amount: number;
+    direction: Direction;
+    category: string;
+    accountId: string;
+    shared: boolean;
+};
+
+export type EntryTemplatePayload = Omit<EntryTemplate, 'id'>;
+
+function normalizeTemplateAmount(amount: number) {
+    return Math.round(amount * 100) / 100;
+}
+
+/** 备注、金额、收支、分类、账户、共享范围全部相同视为同一模板 */
+export function templatesEquivalent(
+    a: Pick<EntryTemplate, 'title' | 'amount' | 'direction' | 'category' | 'accountId' | 'shared'>,
+    b: Pick<EntryTemplate, 'title' | 'amount' | 'direction' | 'category' | 'accountId' | 'shared'>,
+) {
+    return (
+        a.title.trim() === b.title.trim()
+        && normalizeTemplateAmount(a.amount) === normalizeTemplateAmount(b.amount)
+        && a.direction === b.direction
+        && a.category === b.category
+        && a.accountId === b.accountId
+        && a.shared === b.shared
+    );
+}
+
+export function dedupeTemplates(templates: EntryTemplate[]) {
+    const kept: EntryTemplate[] = [];
+    for (const item of templates) {
+        if (!kept.some((existing) => templatesEquivalent(existing, item))) kept.push(item);
+    }
+    return kept;
+}
+
 export type Book = {
     nickname: string;
     gender: Gender;
+    locale: BookLocale;
     currency: Currency;
+    /** 本月支出预算；null 表示未设置 */
+    monthlyBudget: number | null;
+    /** 分类支出上限（可选） */
+    categoryBudgets: Record<string, number>;
+    templates: EntryTemplate[];
     categories: string[];
     accounts: Account[];
     entries: Entry[];
@@ -33,6 +84,29 @@ export type Book = {
 const storageKey = 'ledger-book-v1';
 
 export const starterCategories = ['餐饮', '交通', '日用', '居住', '收入', '订阅', '娱乐'];
+
+/** 分类预算输入框占位参考（元/月，仅提示，不自动写入） */
+export const categoryBudgetHintByName: Record<string, number> = {
+    餐饮: 1800,
+    交通: 400,
+    日用: 600,
+    居住: 3200,
+    收入: 8000,
+    订阅: 200,
+    娱乐: 500,
+};
+
+function budgetHintAmount(value: number) {
+    return value.toFixed(2);
+}
+
+export function categoryBudgetHint(name: string) {
+    return budgetHintAmount(categoryBudgetHintByName[name] ?? 500);
+}
+
+export function defaultMonthlyBudgetHint() {
+    return budgetHintAmount(5000);
+}
 
 export const currencyMark: Record<Currency, string> = {
     USD: '$',
@@ -73,8 +147,8 @@ function sampleBookParts(): Pick<Book, 'accounts' | 'entries'> {
     const card = 'sample-card';
     return {
         accounts: [
-            { id: cash, name: '现金', opening: 860 },
-            { id: card, name: 'Visa', opening: 4200 },
+            { id: cash, name: '现金', opening: 860, kind: 'cash' },
+            { id: card, name: 'Visa', opening: 4200, kind: 'card' },
         ],
         entries: [
             { id: 'sample-lunch', title: '午饭', amount: 18.4, direction: 'out', category: '餐饮', date: daysAgo(0), accountId: cash, shared: false, checked: false },
@@ -113,7 +187,11 @@ export function emptyBook(): Book {
     return withSample({
         nickname: '',
         gender: 'secret',
+        locale: 'zh',
         currency: 'USD',
+        monthlyBudget: null,
+        categoryBudgets: {},
+        templates: [],
         categories: [...starterCategories],
         accounts: [],
         entries: [],
@@ -130,9 +208,18 @@ export function loadBook(): Book {
             ...emptyBook(),
             ...parsed,
             categories: parsed.categories?.length ? parsed.categories : [...starterCategories],
-            accounts: parsed.accounts,
+            accounts: parsed.accounts.map((account) => ({
+                id: account.id,
+                name: account.name,
+                opening: account.opening,
+                kind: normalizeAccountKind(account.kind),
+            })),
             entries: parsed.entries,
             sampleCleared: parsed.sampleCleared,
+            locale: parsed.locale === 'en' ? 'en' : 'zh',
+            monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
+            categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
+            templates: dedupeTemplates(Array.isArray(parsed.templates) ? parsed.templates : []),
         });
     } catch {
         return emptyBook();
@@ -151,8 +238,23 @@ export function signedValue(entry: Entry) {
     return entry.direction === 'out' ? -entry.amount : entry.amount;
 }
 
+export function normalizeAccountKind(value: unknown): AccountKind {
+    if (value === 'bank' || value === 'cash' || value === 'card' || value === 'other') return value;
+    return 'cash';
+}
+
 export function accountTotal(account: Account, entries: Entry[]) {
     return entries
         .filter((entry) => entry.accountId === account.id)
         .reduce((sum, entry) => sum + signedValue(entry), account.opening);
+}
+
+export function accountBalanceOnDate(account: Account, entries: Entry[], iso: string) {
+    return entries
+        .filter((entry) => entry.accountId === account.id && entry.date <= iso)
+        .reduce((sum, entry) => sum + signedValue(entry), account.opening);
+}
+
+export function bookBalanceOnDate(accounts: Account[], entries: Entry[], iso: string) {
+    return accounts.reduce((sum, account) => sum + accountBalanceOnDate(account, entries, iso), 0);
 }
