@@ -8,8 +8,19 @@ import {
     accountBalanceOnDate,
     accountKindOrder,
     accountTotal,
+    accountsBalanceTotal,
     bookBalanceOnDate,
+    bookNetWorth,
+    bookNetWorthOnDate,
     createId,
+    holdingCostPrice,
+    holdingCostTotalFromPrice,
+    holdingMarketValue,
+    holdingUnrealizedPnl,
+    holdingsEquivalent,
+    holdingsMarketTotal,
+    normalizeHoldingKind,
+    parseHoldings,
     currencyMark,
     emptyBook,
     loadBook,
@@ -30,6 +41,8 @@ import {
     type Entry,
     type EntryTemplate,
     type Gender,
+    type Holding,
+    type HoldingKind,
 } from './store';
 import { normalizeLocale, strings, type Copy, type Locale } from './i18n';
 import './style.css';
@@ -39,7 +52,7 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'profile' | 'privacy' | 'filter' | 'budget' | 'transfer';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'privacy' | 'filter' | 'budget' | 'transfer';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30 | 90;
@@ -196,13 +209,24 @@ function formatPct(delta: number, base: number) {
     return `${sign}${pct.toFixed(1)}%`;
 }
 
-function netWorthSeries(accounts: Account[], entries: Entry[], days: AccountsWindow) {
+function netWorthSeries(accounts: Account[], entries: Entry[], holdings: Holding[], days: AccountsWindow) {
     const start = accountsWindowStart(days);
     const end = todayIso();
     return eachDay(start, end).map((day) => ({
         day,
-        amount: bookBalanceOnDate(accounts, entries, day),
+        amount: bookNetWorthOnDate(accounts, entries, holdings, day),
     }));
+}
+
+function holdingKindLabel(L: Copy, kind: HoldingKind) {
+    if (kind === 'etf') return L.holdingKindEtf;
+    if (kind === 'fund') return L.holdingKindFund;
+    return L.holdingKindStock;
+}
+
+function formatHoldingQty(kind: HoldingKind, qty: number) {
+    const digits = kind === 'etf' ? 3 : 2;
+    return qty.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: digits });
 }
 
 function accountPeriodFlow(accountId: string, entries: Entry[], start: string, end: string) {
@@ -411,6 +435,15 @@ export default function LedgerApp() {
     const [accountKind, setAccountKind] = useState<AccountKind>('cash');
     const [editingAccountId, setEditingAccountId] = useState('');
     const [viewingAccountId, setViewingAccountId] = useState('');
+    const [editingHoldingId, setEditingHoldingId] = useState('');
+    const [viewingHoldingId, setViewingHoldingId] = useState('');
+    const [holdingKind, setHoldingKind] = useState<HoldingKind>('stock');
+    const [holdingCode, setHoldingCode] = useState('');
+    const [holdingName, setHoldingName] = useState('');
+    const [holdingQty, setHoldingQty] = useState('');
+    const [holdingCost, setHoldingCost] = useState('');
+    const [holdingPrice, setHoldingPrice] = useState('');
+    const [holdingPriceDate, setHoldingPriceDate] = useState(todayIso);
     const [accountsWindowDays, setAccountsWindowDays] = useState<AccountsWindow>(30);
     const [categoryName, setCategoryName] = useState('');
     const [editingCategories, setEditingCategories] = useState(false);
@@ -448,7 +481,9 @@ export default function LedgerApp() {
         () => book.entries.filter((entry) => (scope === 'family' ? entry.shared : !entry.shared)),
         [book.entries, scope],
     );
-    const balance = book.accounts.reduce((sum, account) => sum + accountTotal(account, book.entries), 0);
+    const balance = bookNetWorth(book.accounts, book.entries, book.holdings ?? []);
+    const cashBalance = accountsBalanceTotal(book.accounts, book.entries);
+    const holdingsTotal = holdingsMarketTotal(book.holdings ?? []);
     const monthKey = todayIso().slice(0, 7);
     const monthEntries = visibleEntries.filter((entry) => entry.date.startsWith(monthKey));
     const monthOut = monthEntries.filter((entry) => entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0);
@@ -488,16 +523,20 @@ export default function LedgerApp() {
         return list;
     }, []).sort((a, b) => b.localeCompare(a));
 
-    const accountsCombined = book.accounts.reduce((sum, account) => sum + accountTotal(account, book.entries), 0);
+    const holdings = book.holdings ?? [];
+    const stockHoldings = holdings.filter((item) => item.kind === 'stock' || item.kind === 'etf');
+    const fundHoldings = holdings.filter((item) => item.kind === 'fund');
+    const accountsCombined = bookNetWorth(book.accounts, book.entries, holdings);
     const accountsTrend = useMemo(
-        () => netWorthSeries(book.accounts, book.entries, accountsWindowDays),
-        [book.accounts, book.entries, accountsWindowDays],
+        () => netWorthSeries(book.accounts, book.entries, holdings, accountsWindowDays),
+        [book.accounts, book.entries, holdings, accountsWindowDays],
     );
     const accountsWindowFrom = accountsWindowStart(accountsWindowDays);
-    const accountsWindowPrior = bookBalanceOnDate(book.accounts, book.entries, isoBefore(accountsWindowFrom));
+    const accountsWindowPrior = bookNetWorthOnDate(book.accounts, book.entries, holdings, isoBefore(accountsWindowFrom));
     const accountsWindowDelta = accountsCombined - accountsWindowPrior;
     const filteredAccountName = book.accounts.find((item) => item.id === accountFilter)?.name;
     const viewingAccount = book.accounts.find((item) => item.id === viewingAccountId);
+    const viewingHolding = holdings.find((item) => item.id === viewingHoldingId);
     const prevMonth = monthBounds(-1);
     const prevMonthOutByCategory = useMemo(() => {
         const map = new Map<string, number>();
@@ -631,6 +670,69 @@ export default function LedgerApp() {
     function removeAccount(id: string) {
         setBook({ ...book, accounts: book.accounts.filter((item) => item.id !== id), entries: book.entries.filter((entry) => entry.accountId !== id) });
         setViewingAccountId('');
+        setPanel('none');
+    }
+
+    function openHoldingDetail(holding: Holding) {
+        setViewingHoldingId(holding.id);
+        setPanel('holdingDetail');
+    }
+
+    function openHolding(holding?: Holding) {
+        setEditingHoldingId(holding?.id ?? '');
+        setHoldingKind(normalizeHoldingKind(holding?.kind));
+        setHoldingCode(holding?.code ?? '');
+        setHoldingName(holding?.name ?? '');
+        setHoldingQty(holding ? String(holding.qty) : '');
+        setHoldingCost(holding ? String(holdingCostPrice(holding)) : '');
+        setHoldingPrice(holding ? String(holding.price) : '');
+        setHoldingPriceDate(holding?.priceAsOf ?? todayIso());
+        setPanel('holding');
+    }
+
+    function closeHoldingEditor() {
+        setPanel(viewingHoldingId ? 'holdingDetail' : 'none');
+    }
+
+    function saveHolding() {
+        const code = holdingCode.trim();
+        const name = holdingName.trim();
+        const qty = Number(holdingQty);
+        const costPrice = Number(holdingCost);
+        const price = Number(holdingPrice);
+        if (!code || !name || !Number.isFinite(qty) || qty <= 0) return;
+        if (!Number.isFinite(costPrice) || costPrice < 0) return;
+        if (!Number.isFinite(price) || price <= 0) return;
+        const costTotal = holdingCostTotalFromPrice(qty, costPrice);
+        const kind = normalizeHoldingKind(holdingKind);
+        const payload = {
+            kind,
+            code,
+            name,
+            qty,
+            costTotal,
+            price,
+            priceAsOf: holdingPriceDate || todayIso(),
+        };
+        const list = book.holdings ?? [];
+        const duplicate = list.some(
+            (item) => holdingsEquivalent(item, payload) && item.id !== editingHoldingId,
+        );
+        if (duplicate) return;
+        const next: Holding = editingHoldingId
+            ? { ...list.find((item) => item.id === editingHoldingId)!, ...payload }
+            : { id: createId(), ...payload };
+        const holdingsNext = editingHoldingId
+            ? list.map((item) => (item.id === editingHoldingId ? next : item))
+            : [...list, next];
+        setBook({ ...book, holdings: holdingsNext });
+        if (editingHoldingId) setViewingHoldingId(editingHoldingId);
+        closeHoldingEditor();
+    }
+
+    function removeHolding(id: string) {
+        setBook({ ...book, holdings: (book.holdings ?? []).filter((item) => item.id !== id) });
+        setViewingHoldingId('');
         setPanel('none');
     }
 
@@ -820,6 +922,7 @@ export default function LedgerApp() {
                     monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
                     categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
                     templates: dedupeTemplates(Array.isArray(parsed.templates) ? parsed.templates : []),
+                    holdings: parseHoldings(parsed.holdings),
                     sampleCleared: true,
                 }));
                 setImportNote(L.importDone);
@@ -920,7 +1023,7 @@ export default function LedgerApp() {
                             <label className="ledger-label" htmlFor="account-name">{L.accountName}</label>
                             <input id="account-name" className="ledger-field" value={accountName} placeholder={L.accountNamePh} onChange={(event) => setAccountName(event.target.value)} />
                             <p className="ledger-label">{L.accountKindLabel}</p>
-                            <div className="ledger-segment ledger-segment-4" role="tablist" aria-label={L.accountKindLabel}>
+                            <div className="ledger-choice-row" role="tablist" aria-label={L.accountKindLabel}>
                                 {accountKindOrder.map((item) => (
                                     <button key={item} type="button" role="tab" aria-selected={accountKind === item} className={accountKind === item ? 'is-on' : ''} onClick={() => setAccountKind(item)}>{accountKindLabel(L, item)}</button>
                                 ))}
@@ -943,13 +1046,61 @@ export default function LedgerApp() {
                             onActivity={() => openAccountFeed(viewingAccount.id)}
                         />
                     )}
+                    {panel === 'holding' && (
+                        <>
+                            <SubpageHead L={L} title={editingHoldingId ? L.editHolding : L.newHolding} onBack={closeHoldingEditor} />
+                            <p className="ledger-label">{L.holdingKindLabel}</p>
+                            <div className="ledger-choice-row ledger-choice-row--3" role="tablist" aria-label={L.holdingKindLabel}>
+                                {(['stock', 'etf', 'fund'] as const).map((item) => (
+                                    <button key={item} type="button" role="tab" aria-selected={holdingKind === item} className={holdingKind === item ? 'is-on' : ''} onClick={() => setHoldingKind(item)}>{holdingKindLabel(L, item)}</button>
+                                ))}
+                            </div>
+                            <label className="ledger-label" htmlFor="holding-code">{L.holdingCode}</label>
+                            <input id="holding-code" className="ledger-field" value={holdingCode} placeholder={L.holdingCodePh} onChange={(event) => setHoldingCode(event.target.value)} />
+                            <label className="ledger-label" htmlFor="holding-name">{L.holdingName}</label>
+                            <input id="holding-name" className="ledger-field" value={holdingName} placeholder={L.holdingNamePh} onChange={(event) => setHoldingName(event.target.value)} />
+                            <label className="ledger-label" htmlFor="holding-qty">{L.holdingQty}</label>
+                            <input id="holding-qty" className="ledger-field" inputMode="decimal" value={holdingQty} placeholder="0" onChange={(event) => setHoldingQty(event.target.value)} />
+                            <label className="ledger-label" htmlFor="holding-cost">{L.holdingCostPrice}</label>
+                            <input id="holding-cost" className="ledger-field" inputMode="decimal" value={holdingCost} placeholder={L.holdingCostPricePh} onChange={(event) => setHoldingCost(event.target.value)} />
+                            <label className="ledger-label" htmlFor="holding-price">{L.holdingPrice}</label>
+                            <input id="holding-price" className="ledger-field" inputMode="decimal" value={holdingPrice} placeholder="0.00" onChange={(event) => setHoldingPrice(event.target.value)} />
+                            <label className="ledger-label" htmlFor="holding-price-date">{L.holdingPriceAsOf}</label>
+                            <input id="holding-price-date" className="ledger-field" type="date" value={holdingPriceDate} max={todayIso()} onChange={(event) => setHoldingPriceDate(event.target.value)} />
+                            <button
+                                type="button"
+                                className="ledger-pill"
+                                onClick={saveHolding}
+                                disabled={
+                                    !holdingCode.trim()
+                                    || !holdingName.trim()
+                                    || !(Number(holdingQty) > 0)
+                                    || !(Number(holdingCost) >= 0)
+                                    || !(Number(holdingPrice) > 0)
+                                }
+                            >
+                                {L.save}
+                            </button>
+                            {editingHoldingId && <button type="button" className="ledger-text-button" onClick={() => removeHolding(editingHoldingId)}>{L.deleteHolding}</button>}
+                        </>
+                    )}
+                    {panel === 'holdingDetail' && viewingHolding && (
+                        <HoldingDetailView
+                            L={L}
+                            holding={viewingHolding}
+                            mark={mark}
+                            locale={locale}
+                            onBack={() => { setViewingHoldingId(''); setPanel('none'); }}
+                            onEdit={() => openHolding(viewingHolding)}
+                        />
+                    )}
                     {panel === 'profile' && (
                         <>
                             <SubpageHead L={L} title={L.profileTitle} onBack={() => setPanel('none')} />
                             <label className="ledger-label" htmlFor="ledger-nickname">{L.nickname}</label>
                             <input id="ledger-nickname" className="ledger-field" value={draftName} maxLength={12} onChange={(event) => setDraftName(event.target.value)} />
                             <p className="ledger-label">{L.gender}</p>
-                            <div className="ledger-segment ledger-segment-3" role="tablist" aria-label={L.gender}>
+                            <div className="ledger-choice-row ledger-choice-row--3" role="tablist" aria-label={L.gender}>
                                 {(['female', 'male', 'secret'] as const).map((item) => (
                                     <button key={item} type="button" role="tab" aria-selected={draftGender === item} className={draftGender === item ? 'is-on' : ''} onClick={() => setDraftGender(item)}>{genderLabel(item, L)}</button>
                                 ))}
@@ -1180,13 +1331,19 @@ export default function LedgerApp() {
                                 <span className="ledger-topbar-meta">{book.accounts.length}{L.accountCount ? ` ${L.accountCount}` : ''}</span>
                             </div>
                             <SampleNote L={L} book={book} onClear={clearSample} />
-                            {book.accounts.length === 0 ? (
+                            {book.accounts.length === 0 && holdings.length === 0 ? (
                                 <p className="ledger-empty">{L.accountsEmpty}</p>
                             ) : (
                                 <>
                                     <article className="ledger-net-card ledger-accounts-hero">
                                         <p>{L.netAssets}</p>
                                         <MoneyAmount value={accountsCombined} mark={mark} size="hero" />
+                                        {holdingsTotal > 0 && (
+                                            <p className="ledger-net-foot">
+                                                {L.accountBalance} <MoneyAmount value={cashBalance} mark={mark} size="sm" />
+                                                · {L.holdingMarketValue} <MoneyAmount value={holdingsTotal} mark={mark} size="sm" />
+                                            </p>
+                                        )}
                                         <div className="ledger-segment ledger-segment-3 ledger-accounts-window" role="tablist" aria-label={L.accountsTrend}>
                                             {([
                                                 [7, L.accountsWindow7],
@@ -1239,12 +1396,31 @@ export default function LedgerApp() {
                                             </section>
                                         );
                                     })}
+                                    <HoldingGroupSection
+                                        title={L.holdingsStock}
+                                        emptyNote={L.holdingsEmptyStock}
+                                        list={stockHoldings}
+                                        L={L}
+                                        mark={mark}
+                                        toneOffset={2}
+                                        onOpen={openHoldingDetail}
+                                    />
+                                    <HoldingGroupSection
+                                        title={L.holdingsFund}
+                                        emptyNote={L.holdingsEmptyFund}
+                                        list={fundHoldings}
+                                        L={L}
+                                        mark={mark}
+                                        toneOffset={5}
+                                        onOpen={openHoldingDetail}
+                                    />
                                 </>
                             )}
                             {book.accounts.length >= 2 && (
                                 <button type="button" className="ledger-pill ledger-pill-secondary" onClick={openTransferPanel}>{L.transfer}</button>
                             )}
                             <button type="button" className="ledger-pill" onClick={() => openAccount()}>{L.addAccount}</button>
+                            <button type="button" className="ledger-pill ledger-pill-secondary" onClick={() => openHolding()}>{L.addHolding}</button>
                         </>
                     )}
 
@@ -1291,7 +1467,7 @@ export default function LedgerApp() {
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <div className="ledger-settings-block">
                                     <p className="ledger-settings-label" id="ledger-locale-label">{L.language}</p>
-                                    <div className="ledger-segment" role="tablist" aria-labelledby="ledger-locale-label">
+                                    <div className="ledger-choice-row" role="tablist" aria-labelledby="ledger-locale-label">
                                         <button type="button" role="tab" aria-selected={locale === 'zh'} className={locale === 'zh' ? 'is-on' : ''} onClick={() => setBook({ ...book, locale: 'zh' })}>中文</button>
                                         <button type="button" role="tab" aria-selected={locale === 'en'} className={locale === 'en' ? 'is-on' : ''} onClick={() => setBook({ ...book, locale: 'en' })}>English</button>
                                     </div>
@@ -1299,7 +1475,7 @@ export default function LedgerApp() {
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <div className="ledger-settings-block">
                                     <p className="ledger-settings-label" id="ledger-currency-label">{L.currency}</p>
-                                    <div className="ledger-segment ledger-segment-3" role="tablist" aria-labelledby="ledger-currency-label">
+                                    <div className="ledger-choice-row ledger-choice-row--3" role="tablist" aria-labelledby="ledger-currency-label">
                                         {(['USD', 'EUR', 'CNY'] as const).map((item) => (
                                             <button key={item} type="button" role="tab" aria-selected={book.currency === item} className={book.currency === item ? 'is-on' : ''} onClick={() => setBook({ ...book, currency: item })}>{item}</button>
                                         ))}
@@ -1537,6 +1713,105 @@ function SampleNote({ L, book, onClear }: { L: Copy; book: Book; onClear: () => 
     );
 }
 
+function HoldingGroupSection({
+    title,
+    emptyNote,
+    list,
+    L,
+    mark,
+    toneOffset,
+    onOpen,
+}: {
+    title: string;
+    emptyNote: string;
+    list: Holding[];
+    L: Copy;
+    mark: string;
+    toneOffset: number;
+    onOpen: (holding: Holding) => void;
+}) {
+    const groupTotal = holdingsMarketTotal(list);
+    return (
+        <section className="ledger-account-group">
+            <div className="ledger-account-group-head">
+                <h2>{title}</h2>
+                {list.length > 0 ? <MoneyAmount value={groupTotal} mark={mark} size="sm" /> : null}
+            </div>
+            {list.length === 0 ? (
+                <p className="ledger-panel-note ledger-holding-empty">{emptyNote}</p>
+            ) : (
+                list.map((holding, index) => {
+                    const value = holdingMarketValue(holding);
+                    const pnl = holdingUnrealizedPnl(holding);
+                    return (
+                        <button key={holding.id} type="button" className="ledger-account-row" onClick={() => onOpen(holding)}>
+                            <div className="ledger-account-left">
+                                <div className="ledger-tx-icon" style={{ background: sliceColors[(index + toneOffset) % sliceColors.length] + '33' }}>{holding.name.slice(0, 1)}</div>
+                                <div className="ledger-account-copy">
+                                    <b>{holding.name}</b>
+                                    <p className="ledger-account-meta">{holding.code} · {holdingKindLabel(L, holding.kind)} · {formatHoldingQty(holding.kind, holding.qty)}</p>
+                                </div>
+                            </div>
+                            <div className="ledger-account-row-side">
+                                <MoneyAmount value={value} mark={mark} size="md" />
+                                <span className={`ledger-account-delta ${pnl >= 0 ? 'is-up' : 'is-down'}`}>
+                                    <MoneyAmount value={pnl} mark={mark} size="sm" signed />
+                                </span>
+                            </div>
+                        </button>
+                    );
+                })
+            )}
+        </section>
+    );
+}
+
+function HoldingDetailView({
+    L,
+    holding,
+    mark,
+    locale,
+    onBack,
+    onEdit,
+}: {
+    L: Copy;
+    holding: Holding;
+    mark: string;
+    locale: Locale;
+    onBack: () => void;
+    onEdit: () => void;
+}) {
+    const value = holdingMarketValue(holding);
+    const pnl = holdingUnrealizedPnl(holding);
+    const unitCost = holdingCostPrice(holding);
+    const priceLabel = locale === 'en'
+        ? new Date(`${holding.priceAsOf}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : holding.priceAsOf;
+
+    return (
+        <>
+            <SubpageHead L={L} title={holding.name} onBack={onBack} />
+            <article className="ledger-card">
+                <p className="ledger-settings-label">{holding.code} · {holdingKindLabel(L, holding.kind)}</p>
+                <MoneyAmount value={value} mark={mark} size="hero" />
+                <p className="ledger-account-detail-meta">
+                    <span>{L.holdingPnl}</span>
+                    <span className={pnl >= 0 ? 'ledger-tone-up' : 'ledger-tone-down'}>
+                        <MoneyAmount value={pnl} mark={mark} size="sm" signed />
+                    </span>
+                </p>
+                <dl className="ledger-holding-facts">
+                    <div><dt>{L.holdingQty}</dt><dd>{formatHoldingQty(holding.kind, holding.qty)}</dd></div>
+                    <div><dt>{L.holdingCostPrice}</dt><dd><MoneyAmount value={unitCost} mark={mark} size="sm" /></dd></div>
+                    <div><dt>{L.holdingCostTotal}</dt><dd><MoneyAmount value={holding.costTotal} mark={mark} size="sm" /></dd></div>
+                    <div><dt>{L.holdingPrice}</dt><dd><MoneyAmount value={holding.price} mark={mark} size="sm" /> <span className="ledger-holding-asof">{priceLabel}</span></dd></div>
+                </dl>
+            </article>
+            <button type="button" className="ledger-pill" onClick={onEdit}>{L.editHolding}</button>
+        </>
+    );
+}
+
 function AccountDetailView({
     L,
     account,
@@ -1561,7 +1836,7 @@ function AccountDetailView({
     const prior = accountBalanceOnDate(account, entries, isoBefore(windowFrom));
     const delta = total - prior;
     const flow = accountPeriodFlow(account.id, entries, windowFrom, todayIso());
-    const series = netWorthSeries([account], entries, windowDays);
+    const series = netWorthSeries([account], entries, [], windowDays);
 
     return (
         <>
@@ -1690,7 +1965,7 @@ function EntryForm({
     return (
         <>
             <SubpageHead L={L} title={draft.id ? L.entryEdit : L.entryNew} onBack={onBack} />
-            <div className="ledger-segment" role="tablist" aria-label={L.direction}>
+            <div className="ledger-choice-row" role="tablist" aria-label={L.direction}>
                 <button type="button" role="tab" aria-selected={draft.direction === 'out'} className={draft.direction === 'out' ? 'is-on' : ''} onClick={() => onChange({ ...draft, direction: 'out' })}>{L.expense}</button>
                 <button type="button" role="tab" aria-selected={draft.direction === 'in'} className={draft.direction === 'in' ? 'is-on' : ''} onClick={() => onChange({ ...draft, direction: 'in' })}>{L.income}</button>
             </div>
