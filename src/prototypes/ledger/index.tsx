@@ -52,10 +52,10 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'privacy' | 'filter' | 'budget' | 'transfer';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'export' | 'import' | 'filter' | 'budget' | 'transfer';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
-type AccountsWindow = 7 | 30 | 90;
+type AccountsWindow = 7 | 30;
 
 function genderLabel(gender: Gender, L: Copy) {
     if (gender === 'male') return L.genderMale;
@@ -461,6 +461,7 @@ export default function LedgerApp() {
     const [budgetInput, setBudgetInput] = useState('');
     const [exportNote, setExportNote] = useState('');
     const [importNote, setImportNote] = useState('');
+    const [importText, setImportText] = useState('');
     const [transferFrom, setTransferFrom] = useState('');
     const [transferTo, setTransferTo] = useState('');
     const [transferAmount, setTransferAmount] = useState('');
@@ -898,46 +899,61 @@ export default function LedgerApp() {
         setBook({ ...book, templates: book.templates.filter((item) => item.id !== id) });
     }
 
+    function applyImportedBook(parsed: Partial<Book> | null) {
+        if (!parsed || !Array.isArray(parsed.entries) || !Array.isArray(parsed.accounts)) {
+            setImportNote(L.importFail);
+            return;
+        }
+        setBook(withoutSample({
+            ...emptyBook(),
+            ...parsed,
+            categories: parsed.categories?.length ? parsed.categories : [...starterCategories],
+            accounts: parsed.accounts.map((account) => ({
+                id: account.id,
+                name: account.name,
+                opening: account.opening,
+                kind: normalizeAccountKind(account.kind),
+            })),
+            entries: parsed.entries,
+            locale: parsed.locale === 'en' ? 'en' : 'zh',
+            monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
+            categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
+            templates: dedupeTemplates(Array.isArray(parsed.templates) ? parsed.templates : []),
+            holdings: parseHoldings(parsed.holdings),
+            sampleCleared: true,
+        }));
+        setImportNote(L.importDone);
+    }
+
     function importBookFile(file: File) {
         const reader = new FileReader();
         reader.onload = () => {
             try {
-                const parsed = JSON.parse(String(reader.result)) as Partial<Book>;
-                if (!parsed || !Array.isArray(parsed.entries) || !Array.isArray(parsed.accounts)) {
-                    setImportNote(L.importFail);
-                    return;
-                }
-                setBook(withoutSample({
-                    ...emptyBook(),
-                    ...parsed,
-                    categories: parsed.categories?.length ? parsed.categories : [...starterCategories],
-                    accounts: parsed.accounts.map((account) => ({
-                        id: account.id,
-                        name: account.name,
-                        opening: account.opening,
-                        kind: normalizeAccountKind(account.kind),
-                    })),
-                    entries: parsed.entries,
-                    locale: parsed.locale === 'en' ? 'en' : 'zh',
-                    monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
-                    categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
-                    templates: dedupeTemplates(Array.isArray(parsed.templates) ? parsed.templates : []),
-                    holdings: parseHoldings(parsed.holdings),
-                    sampleCleared: true,
-                }));
-                setImportNote(L.importDone);
+                applyImportedBook(JSON.parse(String(reader.result)) as Partial<Book>);
             } catch {
                 setImportNote(L.importFail);
             }
-            window.setTimeout(() => setImportNote(''), 2400);
         };
         reader.readAsText(file);
     }
 
-    function handleExport() {
-        downloadBook(book);
-        setExportNote(L.exportDone);
-        window.setTimeout(() => setExportNote(''), 2400);
+    function importBookText() {
+        try {
+            applyImportedBook(JSON.parse(importText) as Partial<Book>);
+        } catch {
+            setImportNote(L.importFail);
+        }
+    }
+
+    async function handleExport() {
+        const text = JSON.stringify(book, null, 2);
+        try {
+            await navigator.clipboard.writeText(text);
+            setExportNote(L.exportCopied);
+        } catch {
+            downloadBook(book);
+            setExportNote(L.exportDone);
+        }
     }
 
     function openAccountFeed(accountId: string) {
@@ -958,6 +974,7 @@ export default function LedgerApp() {
     return (
         <main className="ledger">
             <section className="ledger-phone">
+                <div className="ledger-stage">
                 <div className="ledger-body">
                     {panel === 'entry' && (
                         <EntryForm
@@ -1056,9 +1073,9 @@ export default function LedgerApp() {
                                 ))}
                             </div>
                             <label className="ledger-label" htmlFor="holding-code">{L.holdingCode}</label>
-                            <input id="holding-code" className="ledger-field" value={holdingCode} placeholder={L.holdingCodePh} onChange={(event) => setHoldingCode(event.target.value)} />
+                            <input id="holding-code" className="ledger-field" value={holdingCode} placeholder={holdingKind === 'etf' ? L.holdingCodeEtf : holdingKind === 'fund' ? L.holdingCodeFund : L.holdingCodeStock} onChange={(event) => setHoldingCode(event.target.value)} />
                             <label className="ledger-label" htmlFor="holding-name">{L.holdingName}</label>
-                            <input id="holding-name" className="ledger-field" value={holdingName} placeholder={L.holdingNamePh} onChange={(event) => setHoldingName(event.target.value)} />
+                            <input id="holding-name" className="ledger-field" value={holdingName} placeholder={holdingKind === 'etf' ? L.holdingNameEtf : holdingKind === 'fund' ? L.holdingNameFund : L.holdingNameStock} onChange={(event) => setHoldingName(event.target.value)} />
                             <label className="ledger-label" htmlFor="holding-qty">{L.holdingQty}</label>
                             <input id="holding-qty" className="ledger-field" inputMode="decimal" value={holdingQty} placeholder="0" onChange={(event) => setHoldingQty(event.target.value)} />
                             <label className="ledger-label" htmlFor="holding-cost">{L.holdingCostPrice}</label>
@@ -1108,7 +1125,26 @@ export default function LedgerApp() {
                             <button type="button" className="ledger-pill" onClick={saveProfile} disabled={!draftName.trim()}>{L.save}</button>
                         </>
                     )}
-                    {panel === 'privacy' && <PrivacyNote L={L} onBack={() => setPanel('none')} />}
+                    {panel === 'export' && (
+                        <>
+                            <SubpageHead L={L} title={L.exportData} onBack={() => setPanel('none')} />
+                            <textarea className="ledger-field ledger-json" readOnly value={JSON.stringify(book, null, 2)} />
+                            <button type="button" className="ledger-pill" onClick={handleExport}>{L.exportCopy}</button>
+                            {exportNote && <p className="ledger-panel-note">{exportNote}</p>}
+                        </>
+                    )}
+                    {panel === 'import' && (
+                        <>
+                            <SubpageHead L={L} title={L.importData} onBack={() => setPanel('none')} />
+                            <textarea className="ledger-field ledger-json" value={importText} placeholder={L.importPaste} onChange={(event) => setImportText(event.target.value)} />
+                            <button type="button" className="ledger-pill" onClick={importBookText} disabled={!importText.trim()}>{L.importData}</button>
+                            <label className="ledger-text-button ledger-import-row">
+                                {L.importFile}
+                                <input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) importBookFile(file); event.target.value = ''; }} />
+                            </label>
+                            {importNote && <p className="ledger-panel-note">{importNote}</p>}
+                        </>
+                    )}
                     {panel === 'filter' && (
                         <FilterPage
                             L={L}
@@ -1184,7 +1220,7 @@ export default function LedgerApp() {
                                 <section className="ledger-panel">
                                     <div className="ledger-panel-head">
                                         <h2>{L.toReview} · {reviewQueue.length}</h2>
-                                        <button type="button" onClick={() => markReviewed(reviewQueue.map((entry) => entry.id))}>{L.markAllReviewed}</button>
+                                        <button type="button" className="ledger-mark-all" onClick={() => markReviewed(reviewQueue.map((entry) => entry.id))}>{L.markAllReviewed}</button>
                                     </div>
                                     <ul className="ledger-tx-list">
                                         {reviewQueue.map((entry) => (
@@ -1193,12 +1229,14 @@ export default function LedgerApp() {
                                     </ul>
                                 </section>
                             )}
-                            {recurringItems.length > 0 && (
-                                <section className="ledger-panel">
-                                    <div className="ledger-panel-head">
-                                        <h2>{L.recurringTitle}</h2>
-                                        <span className="ledger-topbar-meta">{L.recurringHint}</span>
-                                    </div>
+                            <section className="ledger-panel">
+                                <div className="ledger-panel-head">
+                                    <h2>{L.recurringTitle}</h2>
+                                    {recurringItems.length > 0
+                                        ? <span className="ledger-topbar-meta">{L.recurringHint}</span>
+                                        : <button type="button" onClick={() => openEntry()}>{L.entryNew}</button>}
+                                </div>
+                                {recurringItems.length > 0 ? (
                                     <ul className="ledger-recurring-list">
                                         {recurringItems.map((item) => (
                                             <li key={`${item.title}-${item.amount}`}>
@@ -1209,8 +1247,10 @@ export default function LedgerApp() {
                                             </li>
                                         ))}
                                     </ul>
-                                </section>
-                            )}
+                                ) : (
+                                    <p className="ledger-panel-note">{L.recurringEmpty}</p>
+                                )}
+                            </section>
                             {monthCategoryParts.length > 0 && (
                                 <section className="ledger-panel">
                                     <div className="ledger-panel-head">
@@ -1344,16 +1384,15 @@ export default function LedgerApp() {
                                                 · {L.holdingMarketValue} <MoneyAmount value={holdingsTotal} mark={mark} size="sm" />
                                             </p>
                                         )}
-                                        <div className="ledger-segment ledger-segment-3 ledger-accounts-window" role="tablist" aria-label={L.accountsTrend}>
+                                        <div className="ledger-segment ledger-accounts-window" role="tablist" aria-label={L.accountsTrend}>
                                             {([
                                                 [7, L.accountsWindow7],
                                                 [30, L.accountsWindow30],
-                                                [90, L.accountsWindow90],
                                             ] as const).map(([days, label]) => (
                                                 <button key={days} type="button" role="tab" aria-selected={accountsWindowDays === days} className={accountsWindowDays === days ? 'is-on' : ''} onClick={() => setAccountsWindowDays(days)}>{label}</button>
                                             ))}
                                         </div>
-                                        <SpendLine L={L} points={accountsTrend} active="" />
+                                        <SpendLine L={L} points={accountsTrend} active="" fitRange />
                                         <p className="ledger-accounts-delta">
                                             <span>{L.accountPeriodDelta}</span>
                                             <span className={accountsWindowDelta >= 0 ? 'ledger-tone-up' : 'ledger-tone-down'}>
@@ -1396,24 +1435,26 @@ export default function LedgerApp() {
                                             </section>
                                         );
                                     })}
-                                    <HoldingGroupSection
-                                        title={L.holdingsStock}
-                                        emptyNote={L.holdingsEmptyStock}
-                                        list={stockHoldings}
-                                        L={L}
-                                        mark={mark}
-                                        toneOffset={2}
-                                        onOpen={openHoldingDetail}
-                                    />
-                                    <HoldingGroupSection
-                                        title={L.holdingsFund}
-                                        emptyNote={L.holdingsEmptyFund}
-                                        list={fundHoldings}
-                                        L={L}
-                                        mark={mark}
-                                        toneOffset={5}
-                                        onOpen={openHoldingDetail}
-                                    />
+                                    {stockHoldings.length > 0 && (
+                                        <HoldingGroupSection
+                                            title={L.holdingsStock}
+                                            list={stockHoldings}
+                                            L={L}
+                                            mark={mark}
+                                            toneOffset={2}
+                                            onOpen={openHoldingDetail}
+                                        />
+                                    )}
+                                    {fundHoldings.length > 0 && (
+                                        <HoldingGroupSection
+                                            title={L.holdingsFund}
+                                            list={fundHoldings}
+                                            L={L}
+                                            mark={mark}
+                                            toneOffset={5}
+                                            onOpen={openHoldingDetail}
+                                        />
+                                    )}
                                 </>
                             )}
                             {book.accounts.length >= 2 && (
@@ -1448,22 +1489,20 @@ export default function LedgerApp() {
                                     </span>
                                 </button>
                                 <div className="ledger-settings-divider" role="presentation" />
-                                <button type="button" className="ledger-row-link" onClick={handleExport}>
+                                <button type="button" className="ledger-row-link" onClick={() => { setExportNote(''); setPanel('export'); }}>
                                     <span>{L.exportData}</span>
                                     <span className="ledger-chevron" aria-hidden="true">›</span>
                                 </button>
                                 <div className="ledger-settings-divider" role="presentation" />
-                                <label className="ledger-row-link ledger-import-row">
+                                <button type="button" className="ledger-row-link" onClick={() => { setImportNote(''); setPanel('import'); }}>
                                     <span>{L.importData}</span>
-                                    <input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) importBookFile(file); event.target.value = ''; }} />
-                                    <span className="ledger-chevron" aria-hidden="true">›</span>
-                                </label>
-                                {(exportNote || importNote) && <p className="ledger-export-note">{exportNote || importNote}</p>}
-                                <div className="ledger-settings-divider" role="presentation" />
-                                <button type="button" className="ledger-row-link" onClick={() => setPanel('privacy')}>
-                                    <span>{L.privacy}</span>
                                     <span className="ledger-chevron" aria-hidden="true">›</span>
                                 </button>
+                                <div className="ledger-settings-divider" role="presentation" />
+                                <a className="ledger-row-link" href="https://www.baidu.com" target="_blank" rel="noreferrer">
+                                    <span>{L.privacy}</span>
+                                    <span className="ledger-chevron" aria-hidden="true">›</span>
+                                </a>
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <div className="ledger-settings-block">
                                     <p className="ledger-settings-label" id="ledger-locale-label">{L.language}</p>
@@ -1529,6 +1568,7 @@ export default function LedgerApp() {
                 {showFab && (
                     <button type="button" className="ledger-fab" aria-label={L.fabLabel} onClick={() => openEntry()}>+</button>
                 )}
+                </div>
 
                 <nav className="ledger-tabs" aria-label={L.mainNav}>
                     {tabs.map((tab) => (
@@ -1685,17 +1725,45 @@ function SpendDonut({ L, parts, total, active, mark, onPick }: { L: Copy; parts:
     );
 }
 
-function SpendLine({ L, points, active, onPick }: { L: Copy; points: { day: string; amount: number }[]; active: string; onPick?: (day: string) => void }) {
+/** 圆点直径约 7px。点距不够时隔天取样，避免 3 个月挤成一条。折线仍用全部日期。 */
+function spacedMarkers<T>(points: T[], width: number) {
+    if (points.length <= 2) return points;
+    const pointStep = (width - 20) / (points.length - 1);
+    const stride = pointStep >= 12 ? 1 : Math.ceil(12 / pointStep);
+    if (stride <= 1) return points;
+    const picked: T[] = [];
+    for (let index = 0; index < points.length; index += stride) picked.push(points[index]);
+    const last = points[points.length - 1];
+    const previous = (picked.length - 1) * stride;
+    if (previous !== points.length - 1) {
+        if (points.length - 1 - previous < stride) picked[picked.length - 1] = last;
+        else picked.push(last);
+    }
+    return picked;
+}
+
+function SpendLine({ L, points, active, onPick, fitRange = false }: { L: Copy; points: { day: string; amount: number }[]; active: string; onPick?: (day: string) => void; fitRange?: boolean }) {
     const width = 320;
     const height = 120;
+    const min = Math.min(...points.map((point) => point.amount));
     const max = Math.max(...points.map((point) => point.amount), 1);
     const step = points.length <= 1 ? 0 : (width - 20) / (points.length - 1);
-    const placed = points.map((point, index) => ({ ...point, x: 10 + index * step, y: height - 16 - (point.amount / max) * (height - 32) }));
+    const plotH = height - 32;
+    const placed = points.map((point, index) => {
+        let y: number;
+        if (fitRange) {
+            y = max === min ? height / 2 : height - 16 - ((point.amount - min) / (max - min)) * plotH;
+        } else {
+            y = height - 16 - (point.amount / max) * plotH;
+        }
+        return { ...point, x: 10 + index * step, y };
+    });
     const path = placed.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`).join(' ');
+    const dots = spacedMarkers(placed, width);
     return (
         <svg className="ledger-line" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={L.spendLineAria}>
             <path d={path} fill="none" stroke="#E85D75" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-            {placed.map((point) => (
+            {dots.map((point) => (
                 <circle key={point.day} cx={point.x} cy={point.y} r={active === point.day ? 5 : point.amount > 0 ? 3.5 : 2} fill={active === point.day ? '#0B051D' : '#FFB3C7'} stroke="#0B051D" strokeWidth="1.2" onClick={onPick ? () => onPick(point.day) : undefined} />
             ))}
         </svg>
@@ -1715,7 +1783,6 @@ function SampleNote({ L, book, onClear }: { L: Copy; book: Book; onClear: () => 
 
 function HoldingGroupSection({
     title,
-    emptyNote,
     list,
     L,
     mark,
@@ -1723,7 +1790,6 @@ function HoldingGroupSection({
     onOpen,
 }: {
     title: string;
-    emptyNote: string;
     list: Holding[];
     L: Copy;
     mark: string;
@@ -1735,12 +1801,9 @@ function HoldingGroupSection({
         <section className="ledger-account-group">
             <div className="ledger-account-group-head">
                 <h2>{title}</h2>
-                {list.length > 0 ? <MoneyAmount value={groupTotal} mark={mark} size="sm" /> : null}
+                <MoneyAmount value={groupTotal} mark={mark} size="sm" />
             </div>
-            {list.length === 0 ? (
-                <p className="ledger-panel-note ledger-holding-empty">{emptyNote}</p>
-            ) : (
-                list.map((holding, index) => {
+            {list.map((holding, index) => {
                     const value = holdingMarketValue(holding);
                     const pnl = holdingUnrealizedPnl(holding);
                     return (
@@ -1760,8 +1823,7 @@ function HoldingGroupSection({
                             </div>
                         </button>
                     );
-                })
-            )}
+                })}
         </section>
     );
 }
@@ -2015,15 +2077,3 @@ function EntryForm({
     );
 }
 
-function PrivacyNote({ L, onBack }: { L: Copy; onBack: () => void }) {
-    return (
-        <>
-            <SubpageHead L={L} title={L.privacyTitle} onBack={onBack} />
-            <article className="ledger-card ledger-copy">
-                <p>{L.privacy1}</p>
-                <p>{L.privacy2}</p>
-                <p>{L.privacy3}</p>
-            </article>
-        </>
-    );
-}

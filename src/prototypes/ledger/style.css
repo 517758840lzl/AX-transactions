@@ -16,7 +16,9 @@
   --neutral: #f6f4f8;
   --stage: #f3f0f4;
   --black-surface: #0b051d;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   justify-content: center;
   background: var(--stage);
@@ -26,16 +28,28 @@
 
 .ledger-phone {
   width: min(100%, 390px);
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   background: #fff;
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
+}
+
+.ledger-stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .ledger-body {
   flex: 1;
-  padding: 12px 18px 120px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 18px 88px;
 }
 
 .ledger-body h1 {
@@ -154,6 +168,19 @@
   font-weight: 700;
   cursor: pointer;
   padding: 0;
+}
+
+.ledger-panel-head button.ledger-mark-all {
+  flex: none;
+  background: var(--pink);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.ledger-panel-head button.ledger-mark-all:active {
+  background: var(--pink-pressed);
 }
 
 .ledger-panel-note {
@@ -615,7 +642,7 @@
 .ledger-fab {
   position: absolute;
   right: 22px;
-  bottom: 88px;
+  bottom: 16px;
   width: 56px;
   height: 56px;
   border: 0;
@@ -631,13 +658,13 @@
 }
 
 .ledger-tabs {
+  flex: none;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(8px);
+  background: #fff;
 }
 
 .ledger-tabs button {
@@ -676,6 +703,14 @@
   box-sizing: content-box;
 }
 
+textarea.ledger-json {
+  min-height: 220px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .ledger-pill {
   display: inline-flex;
   align-items: center;
@@ -706,7 +741,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 0 18px;
+  min-height: 44px;
+  margin: 0;
 }
 
 .ledger-back-btn {
@@ -1176,7 +1212,7 @@ select.ledger-field:focus {
 .ledger-text-button {
   display: block;
   width: 100%;
-  margin-top: 10px;
+  margin-top: 16px;
   border: 0;
   background: transparent;
   color: #a9700e;
@@ -1258,6 +1294,7 @@ button.ledger-card.ledger-profile {
   font-weight: 600;
   cursor: pointer;
   outline: none;
+  text-decoration: none;
 }
 
 .ledger-settings .ledger-row-link {

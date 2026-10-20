@@ -6,7 +6,8 @@
 | --- | --- | --- |
 | **PRD（本文，权威）** | `src/prototypes/ledger/docs/prd.md` | 产品范围、规则、验收、不做项 |
 | 原型主规格 | `src/prototypes/ledger/.spec/spec.md` | 原型 IA、数据键、Make 验收清单 |
-| 实现 | `src/prototypes/ledger/index.tsx` 等 | 可运行界面与持久化 |
+| 实现（Web 原型） | `src/prototypes/ledger/index.tsx` 等 | 可运行界面与持久化 |
+| Flutter 客户端 | `flutter/ledger_app/` | UI 与 Web 对齐，见 `docs/UI_PARITY.md` |
 | 产品参照 | `src/prototypes/ledger/.spec/references/app-landscape.md` | 竞品取势，非需求正文 |
 
 **预览**：`/?projectId=Transactions&p=ledger` · **同目录**：`.spec/spec.md` · **Make 资源镜像**：`doc=prd/ledger.md`（与本文同步）

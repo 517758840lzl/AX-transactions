@@ -101,7 +101,7 @@ const storageKey = 'ledger-book-v1';
 
 export const starterCategories = ['餐饮', '交通', '日用', '居住', '收入', '订阅', '娱乐'];
 
-/** 分类预算输入框占位参考（元/月，仅提示，不自动写入） */
+/** 分类预算输入框占位金额（元/月，仅提示，不自动写入） */
 export const categoryBudgetHintByName: Record<string, number> = {
     餐饮: 1800,
     交通: 400,
