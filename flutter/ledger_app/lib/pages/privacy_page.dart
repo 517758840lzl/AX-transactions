@@ -33,7 +33,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
             if (mounted) setState(() => _failed = false);
           },
           onWebResourceError: (error) {
-            if (error.isForMainFrame != false && mounted) setState(() => _failed = true);
+            if (error.isForMainFrame == true && mounted) setState(() => _failed = true);
           },
         ),
       )
@@ -59,7 +59,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                       ? Center(
                           child: TextButton(
                             onPressed: () => _controller.loadRequest(Uri.parse(PrivacyPage.pageUrl)),
-                            child: Text(PrivacyPage.pageUrl, style: LedgerTextStyles.note.copyWith(color: LedgerColors.ink)),
+                            child: Text(LedgerStrings.privacyRetry, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink)),
                           ),
                         )
                       : WebViewWidget(controller: _controller),

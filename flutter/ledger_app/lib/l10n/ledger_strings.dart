@@ -127,8 +127,15 @@ abstract final class LedgerStrings {
   static const privacy1 = '昵称、性别、账户和每一笔账都保存在本机浏览器里。';
   static const privacy2 = '不会连接银行或第三方，清除站点数据后账本会消失。';
   static const privacy3 = '家庭账在「家庭」范围单独查看。';
-  static const exportCopied = '账本 JSON 已复制到剪贴板';
-  static const exportCopy = '复制 JSON';
+  static const exportSaved = '已保存到下载';
+  static const exportFailed = '没有保存到下载';
+  static const exportBackup = '导出 JSON 备份';
+  static const dataManage = '数据管理';
+  static const clearBook = '清除数据';
+  static const clearBookConfirm = '清除后，账户、流水、持仓和预算都会去掉，并且不会再填回示例。';
+  static const clearBookDone = '账本数据已清除';
+  static const cancel = '取消';
+  static const privacyRetry = '重新加载';
   static const importPaste = '粘贴导出的 JSON';
   static const importDone = '导入成功';
   static const importInvalid = 'JSON 无效，请检查内容';

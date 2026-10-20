@@ -15,27 +15,48 @@ abstract final class TransactionsAnalytics {
     required String? calendarDay,
     required int txViewIndex,
   }) {
-    final bounds = LedgerViewFilter.periodBounds(periodMode, rangeFrom, rangeTo);
-    var list = LedgerViewFilter.inPeriod(LedgerViewFilter.byScope(entries, scope), bounds);
+    final bounds = LedgerViewFilter.periodBounds(
+      periodMode,
+      rangeFrom,
+      rangeTo,
+    );
+    final list = LedgerViewFilter.inPeriod(
+      LedgerViewFilter.byScope(entries, scope),
+      bounds,
+    );
+    final q = search.trim().toLowerCase();
 
     return list.where((entry) {
-      if (txViewIndex == 1 && calendarDay != null && entry.date != calendarDay) return false;
-      if (categoryFilter != null && entry.category != categoryFilter) return false;
-      if (statusFilter == TransactionsStatusFilter.open && entry.checked) return false;
-      if (statusFilter == TransactionsStatusFilter.done && !entry.checked) return false;
-      final q = search.trim().toLowerCase();
+      if (txViewIndex == 1 && calendarDay != null && entry.date != calendarDay) {
+        return false;
+      }
+      if (categoryFilter != null && entry.category != categoryFilter) {
+        return false;
+      }
+      if (statusFilter == TransactionsStatusFilter.open && entry.checked) {
+        return false;
+      }
+      if (statusFilter == TransactionsStatusFilter.done && !entry.checked) {
+        return false;
+      }
       if (q.isEmpty) return true;
-      final hay = '${entry.title} ${entry.category} ${entry.accountName}'.toLowerCase();
+      final hay = '${entry.title} ${entry.category} ${entry.accountName}'
+          .toLowerCase();
       return hay.contains(q);
     }).toList();
   }
 
-  static Map<String, double> prevMonthOutByCategory(List<DashboardEntry> entries) {
+  static Map<String, double> prevMonthOutByCategory(
+    List<DashboardEntry> entries,
+  ) {
     final now = DateTime.now();
     final prev = DateTime(now.year, now.month - 1, 1);
-    final prefix = '${prev.year.toString().padLeft(4, '0')}-${prev.month.toString().padLeft(2, '0')}';
+    final prefix =
+        '${prev.year.toString().padLeft(4, '0')}-${prev.month.toString().padLeft(2, '0')}';
     final map = <String, double>{};
-    for (final e in entries.where((e) => e.isOut && e.date.startsWith(prefix))) {
+    for (final e in entries.where(
+      (e) => e.isOut && e.date.startsWith(prefix),
+    )) {
       map[e.category] = (map[e.category] ?? 0) + e.amount;
     }
     return map;

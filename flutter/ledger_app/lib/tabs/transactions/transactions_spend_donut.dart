@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
 import '../../l10n/ledger_strings.dart';
 import '../../theme/ledger_colors.dart';
 import '../../theme/ledger_text_styles.dart';
@@ -34,12 +35,20 @@ class TransactionsSpendDonut extends StatelessWidget {
       width: 130,
       height: 130,
       child: CustomPaint(
-        painter: _DonutPainter(parts: parts, total: total, activeCategory: activeCategory, colorOf: _color),
+        painter: _DonutPainter(
+          parts: parts,
+          total: total,
+          activeCategory: activeCategory,
+          colorOf: _color,
+        ),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(LedgerStrings.periodSpend, style: LedgerTextStyles.donutCaption),
+              Text(
+                LedgerStrings.periodSpend,
+                style: LedgerTextStyles.donutCaption,
+              ),
               MoneyAmount(value: total, mark: mark, size: MoneySize.pieCenter),
             ],
           ),
@@ -50,7 +59,12 @@ class TransactionsSpendDonut extends StatelessWidget {
 }
 
 class _DonutPainter extends CustomPainter {
-  _DonutPainter({required this.parts, required this.total, required this.activeCategory, required this.colorOf});
+  _DonutPainter({
+    required this.parts,
+    required this.total,
+    required this.activeCategory,
+    required this.colorOf,
+  });
 
   final List<TransactionsSpendPart> parts;
   final double total;
@@ -82,12 +96,31 @@ class _DonutPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = activeCategory == part.name ? 22 : 16
         ..strokeCap = StrokeCap.butt;
-      canvas.drawArc(Rect.fromCircle(center: center, radius: radius), start, sweep, false, paint);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        start,
+        sweep,
+        false,
+        paint,
+      );
       start += (part.amount / total) * 2 * math.pi;
     }
   }
 
   @override
-  bool shouldRepaint(covariant _DonutPainter oldDelegate) =>
-      oldDelegate.parts != parts || oldDelegate.total != total || oldDelegate.activeCategory != activeCategory;
+  bool shouldRepaint(covariant _DonutPainter oldDelegate) {
+    if (oldDelegate.total != total ||
+        oldDelegate.activeCategory != activeCategory ||
+        oldDelegate.parts.length != parts.length) {
+      return true;
+    }
+    for (var i = 0; i < parts.length; i++) {
+      final next = parts[i];
+      final previous = oldDelegate.parts[i];
+      if (next.name != previous.name || next.amount != previous.amount || next.colorHex != previous.colorHex) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

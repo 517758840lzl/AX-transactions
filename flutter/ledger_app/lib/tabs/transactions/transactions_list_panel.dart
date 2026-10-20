@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../l10n/ledger_strings.dart';
 import '../../theme/ledger_text_styles.dart';
 import '../../widgets/ledger_panel.dart';
@@ -37,38 +38,54 @@ class TransactionsListPanel extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: list.isEmpty ? [Text(LedgerStrings.txEmpty, style: LedgerTextStyles.note)] : _txRows(),
+        children: list.isEmpty
+            ? [Text(LedgerStrings.txEmpty, style: LedgerTextStyles.note)]
+            : _txRows(),
       ),
     );
   }
 
   List<Widget> _txRows() {
-    final list = state.listEntries;
+    final grouped = <String, List<DashboardEntry>>{};
+    for (final entry in state.listEntries) {
+      (grouped[entry.date] ??= []).add(entry);
+    }
     final out = <Widget>[];
     var row = 0;
     for (final day in state.txDays) {
       if (state.txViewIndex == 0) {
-        out.add(Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 4),
-          child: Text(TransactionsAnalytics.dayLabel(day), style: LedgerTextStyles.dayLabel),
-        ));
+        out.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 4),
+            child: Text(
+              TransactionsAnalytics.dayLabel(day),
+              style: LedgerTextStyles.dayLabel,
+            ),
+          ),
+        );
       }
-      for (final entry in list.where((e) => e.date == day)) {
-        out.add(LedgerTxRow(
-          entry: entry,
-          mark: mark,
-          showTopBorder: row > 0,
-          onOpen: () => onOpenEntry(entry),
-          onToggleReview: () => onToggleReview(entry.id),
-        ));
+      for (final entry in grouped[day] ?? const <DashboardEntry>[]) {
+        out.add(
+          LedgerTxRow(
+            entry: entry,
+            mark: mark,
+            showTopBorder: row > 0,
+            onOpen: () => onOpenEntry(entry),
+            onToggleReview: () => onToggleReview(entry.id),
+          ),
+        );
         row++;
       }
     }
     return out;
   }
 
+  static final _thousands = RegExp(r'(\d)(?=(\d{3})+(?!\d))');
+
   static String _fmt(double v) {
-    if (v >= 1000) return v.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+    if (v >= 1000) {
+      return v.toStringAsFixed(2).replaceAllMapped(_thousands, (m) => '${m[1]},');
+    }
     return v.toStringAsFixed(2);
   }
 }

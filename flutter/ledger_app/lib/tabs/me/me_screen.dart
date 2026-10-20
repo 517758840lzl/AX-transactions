@@ -135,7 +135,18 @@ class _MeScreenState extends State<MeScreen> {
     return null;
   }
 
-  Future<void> _openExport() => BookExportPage.open(context, document: _exportDocument());
+  void _clearBook() {
+    final session = widget.session;
+    if (session != null) {
+      session.clearBook();
+      return;
+    }
+    widget.entries.publish([]);
+    widget.budget.save(clear: true);
+    widget.catalog.replace(categories: widget.catalog.categories, templates: const []);
+  }
+
+  Future<void> _openExport() => BookExportPage.open(context, currentDocument: _exportDocument, onClear: _clearBook);
 
   Future<void> _openImport() => BookImportPage.open(context, onApply: _applyImport);
 
@@ -166,7 +177,7 @@ class _MeScreenState extends State<MeScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: TabPage.listPadding,
+      padding: TabPage.listPaddingRest,
       children: [
         Text(LedgerStrings.me, style: Theme.of(context).textTheme.headlineLarge),
         const SizedBox(height: 14),

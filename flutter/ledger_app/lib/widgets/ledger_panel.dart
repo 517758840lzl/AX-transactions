@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 
 class LedgerPanel extends StatelessWidget {
-  const LedgerPanel({super.key, required this.child, this.title, this.trailing});
+  const LedgerPanel({
+    super.key,
+    required this.child,
+    this.title,
+    this.trailing,
+  });
 
   final Widget child;
   final String? title;
@@ -11,31 +17,41 @@ class LedgerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: LedgerColors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: LedgerColors.line.withValues(alpha: 0.95)),
-        boxShadow: [BoxShadow(color: LedgerColors.ink.withValues(alpha: 0.05), blurRadius: 28, offset: const Offset(0, 10))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  Expanded(child: Text(title!, style: LedgerTextStyles.panelTitle)),
-                  ?trailing,
-                ],
-              ),
+    return RepaintBoundary(
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: LedgerColors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: LedgerColors.line.withValues(alpha: 0.95)),
+          boxShadow: [
+            BoxShadow(
+              color: LedgerColors.ink.withValues(alpha: 0.05),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
             ),
-          child,
-        ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(title!, style: LedgerTextStyles.panelTitle),
+                    ),
+                    ?trailing,
+                  ],
+                ),
+              ),
+            child,
+          ],
+        ),
       ),
     );
   }

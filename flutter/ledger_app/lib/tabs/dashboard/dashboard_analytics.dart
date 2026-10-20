@@ -9,7 +9,9 @@ abstract final class DashboardAnalytics {
     final end = LedgerViewFilter.todayIso();
     final byDay = <String, double>{};
     for (final entry in scopedEntries) {
-      if (!entry.isOut || entry.date.compareTo(start) < 0 || entry.date.compareTo(end) > 0) continue;
+      if (!entry.isOut || entry.date.compareTo(start) < 0 || entry.date.compareTo(end) > 0) {
+        continue;
+      }
       byDay[entry.date] = (byDay[entry.date] ?? 0) + entry.amount;
     }
     return [for (final day in _eachDay(start, end)) byDay[day] ?? 0];
@@ -29,52 +31,65 @@ abstract final class DashboardAnalytics {
   static String _iso(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   static double monthOut(Iterable<DashboardEntry> entries, String monthPrefix) {
-    return entries.where((e) => e.isOut && e.date.startsWith(monthPrefix)).fold(0.0, (s, e) => s + e.amount);
+    return entries
+        .where((e) => e.isOut && e.date.startsWith(monthPrefix))
+        .fold(0.0, (s, e) => s + e.amount);
   }
 
   static double monthIn(Iterable<DashboardEntry> entries, String monthPrefix) {
-    return entries.where((e) => !e.isOut && e.date.startsWith(monthPrefix)).fold(0.0, (s, e) => s + e.amount);
+    return entries
+        .where((e) => !e.isOut && e.date.startsWith(monthPrefix))
+        .fold(0.0, (s, e) => s + e.amount);
   }
 
   static List<DashboardEntry> reviewQueue(List<DashboardEntry> entries) {
-    final open = entries.where((e) => !e.checked).toList()..sort((a, b) => b.date.compareTo(a.date));
+    final open = entries.where((e) => !e.checked).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
     return open.take(6).toList();
   }
 
-  static List<DashboardCategoryPart> spendCategories(List<DashboardEntry> periodEntries, Map<String, double> caps) {
-    final outs = periodEntries.where((e) => e.isOut);
-    final names = <String>{};
-    for (final e in outs) {
-      names.add(e.category);
-    }
-    final list = names.toList()..sort();
-    return [
-      for (var i = 0; i < list.length; i++)
-        DashboardCategoryPart(
-          name: list[i],
-          amount: outs.where((e) => e.category == list[i]).fold(0.0, (s, e) => s + e.amount),
-          colorHex: DashboardSliceColors.at(i),
-          budgetCap: caps[list[i]],
-        ),
-    ].where((p) => p.amount > 0).toList();
+  static List<DashboardCategoryPart> spendCategories(
+    List<DashboardEntry> periodEntries,
+    Map<String, double> caps,
+  ) {
+    return _categoryParts(periodEntries.where((e) => e.isOut), caps);
   }
 
-  static List<DashboardCategoryPart> monthCategories(List<DashboardEntry> entries, String monthPrefix, Map<String, double> caps) {
-    final outs = entries.where((e) => e.isOut && e.date.startsWith(monthPrefix));
-    final names = <String>{};
-    for (final e in outs) {
-      names.add(e.category);
+  static List<DashboardCategoryPart> monthCategories(
+    List<DashboardEntry> entries,
+    String monthPrefix,
+    Map<String, double> caps,
+  ) {
+    return _categoryParts(
+      entries.where((e) => e.isOut && e.date.startsWith(monthPrefix)),
+      caps,
+    );
+  }
+
+  /// 颜色仍按分类名排序后的位置取，和原先逐类重扫的结果一致。
+  static List<DashboardCategoryPart> _categoryParts(
+    Iterable<DashboardEntry> outs,
+    Map<String, double> caps,
+  ) {
+    final totals = <String, double>{};
+    for (final entry in outs) {
+      totals[entry.category] = (totals[entry.category] ?? 0) + entry.amount;
     }
-    final list = names.toList()..sort();
-    return [
-      for (var i = 0; i < list.length; i++)
+    final names = totals.keys.toList()..sort();
+    final parts = <DashboardCategoryPart>[];
+    for (var i = 0; i < names.length; i++) {
+      final amount = totals[names[i]]!;
+      if (amount <= 0) continue;
+      parts.add(
         DashboardCategoryPart(
-          name: list[i],
-          amount: outs.where((e) => e.category == list[i]).fold(0.0, (s, e) => s + e.amount),
+          name: names[i],
+          amount: amount,
           colorHex: DashboardSliceColors.at(i),
-          budgetCap: caps[list[i]],
+          budgetCap: caps[names[i]],
         ),
-    ].where((p) => p.amount > 0).toList();
+      );
+    }
+    return parts;
   }
 
   static List<DashboardRecurringItem> recurring(List<DashboardEntry> entries) {
@@ -84,12 +99,21 @@ abstract final class DashboardAnalytics {
     for (final e in entries) {
       if (!e.isOut || e.date.compareTo(minIso) < 0) continue;
       final key = '${e.title.trim()}|${e.amount}';
-      final bucket = groups.putIfAbsent(key, () => _RecurringBucket(e.title, e.amount));
+      final bucket = groups.putIfAbsent(
+        key,
+        () => _RecurringBucket(e.title, e.amount),
+      );
       bucket.dates.add(e.date);
     }
     return groups.values
         .where((g) => g.dates.length >= 2)
-        .map((g) => DashboardRecurringItem(title: g.title, amount: g.amount, times: g.dates.length))
+        .map(
+          (g) => DashboardRecurringItem(
+            title: g.title,
+            amount: g.amount,
+            times: g.dates.length,
+          ),
+        )
         .toList()
       ..sort((a, b) => b.times.compareTo(a.times));
   }

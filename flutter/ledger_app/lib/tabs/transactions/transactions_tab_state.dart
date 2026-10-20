@@ -7,7 +7,11 @@ import 'transactions_analytics.dart';
 enum TransactionsStatusFilter { all, open, done }
 
 class TransactionsSpendPart {
-  const TransactionsSpendPart({required this.name, required this.amount, required this.colorHex});
+  const TransactionsSpendPart({
+    required this.name,
+    required this.amount,
+    required this.colorHex,
+  });
 
   final String name;
   final double amount;
@@ -27,8 +31,8 @@ class TransactionsTabState {
     String? rangeFrom,
     String? rangeTo,
     this.sampleCleared = false,
-  })  : rangeFrom = rangeFrom ?? LedgerViewFilter.monthStartIso(),
-        rangeTo = rangeTo ?? LedgerViewFilter.todayIso();
+  }) : rangeFrom = rangeFrom ?? LedgerViewFilter.monthStartIso(),
+       rangeTo = rangeTo ?? LedgerViewFilter.todayIso();
 
   final List<DashboardEntry> entries;
   final String search;
@@ -42,16 +46,26 @@ class TransactionsTabState {
   final String rangeTo;
   final bool sampleCleared;
 
-  static TransactionsTabState initial() => TransactionsTabState(entries: DashboardSampleData.seedEntries());
+  static TransactionsTabState initial() =>
+      TransactionsTabState(entries: DashboardSampleData.seedEntries());
 
   List<DashboardEntry>? _period;
+  List<DashboardEntry>? _list;
   List<TransactionsSpendPart>? _parts;
+  double? _periodOut;
+  double? _periodIn;
+  List<String>? _txDays;
+  Map<String, double>? _spendByDay;
+  Map<String, double>? _prevMonthOut;
 
-  String get periodLabel => LedgerViewFilter.periodChipLabel(periodMode, rangeFrom, rangeTo);
+  String get periodLabel =>
+      LedgerViewFilter.periodChipLabel(periodMode, rangeFrom, rangeTo);
 
-  bool get showSampleBanner => !sampleCleared && DashboardSampleData.hasSampleEntries(entries);
+  bool get showSampleBanner =>
+      !sampleCleared && DashboardSampleData.hasSampleEntries(entries);
 
-  List<DashboardEntry> get periodEntries => _period ??= TransactionsAnalytics.filterEntries(
+  List<DashboardEntry> get periodEntries =>
+      _period ??= TransactionsAnalytics.filterEntries(
         entries: entries,
         scope: scope,
         periodMode: periodMode,
@@ -64,43 +78,65 @@ class TransactionsTabState {
         txViewIndex: 0,
       );
 
-  List<DashboardEntry> get listEntries {
-    if (txViewIndex == 1 && calendarDay != null) {
-      return periodEntries.where((e) => e.date == calendarDay).toList();
+  List<DashboardEntry> get listEntries =>
+      _list ??= txViewIndex == 1 && calendarDay != null
+      ? periodEntries.where((e) => e.date == calendarDay).toList()
+      : periodEntries;
+
+  double get periodOut {
+    final cached = _periodOut;
+    if (cached != null) return cached;
+    var sum = 0.0;
+    for (final entry in periodEntries) {
+      if (entry.isOut) sum += entry.amount;
     }
-    return periodEntries;
+    return _periodOut = sum;
   }
 
-  double get periodOut => periodEntries.where((e) => e.isOut).fold(0.0, (s, e) => s + e.amount);
-
-  double get periodIn => periodEntries.where((e) => !e.isOut).fold(0.0, (s, e) => s + e.amount);
+  double get periodIn {
+    final cached = _periodIn;
+    if (cached != null) return cached;
+    var sum = 0.0;
+    for (final entry in periodEntries) {
+      if (!entry.isOut) sum += entry.amount;
+    }
+    return _periodIn = sum;
+  }
 
   List<TransactionsSpendPart> get spendParts => _parts ??= _buildSpendParts();
 
   List<TransactionsSpendPart> _buildSpendParts() {
-    final names = <String>{};
-    for (final e in periodEntries.where((e) => e.isOut)) {
-      names.add(e.category);
+    final totals = <String, double>{};
+    for (final entry in periodEntries) {
+      if (!entry.isOut) continue;
+      totals[entry.category] = (totals[entry.category] ?? 0) + entry.amount;
     }
-    final list = names.toList()..sort();
-    return [
-      for (var i = 0; i < list.length; i++)
+    final names = totals.keys.toList()..sort();
+    final parts = <TransactionsSpendPart>[];
+    for (var i = 0; i < names.length; i++) {
+      final amount = totals[names[i]]!;
+      if (amount <= 0) continue;
+      parts.add(
         TransactionsSpendPart(
-          name: list[i],
-          amount: periodEntries.where((e) => e.isOut && e.category == list[i]).fold(0.0, (s, e) => s + e.amount),
+          name: names[i],
+          amount: amount,
           colorHex: DashboardSliceColors.at(i),
         ),
-    ].where((p) => p.amount > 0).toList()..sort((a, b) => b.amount.compareTo(a.amount));
+      );
+    }
+    parts.sort((a, b) => b.amount.compareTo(a.amount));
+    return parts;
   }
 
-  Map<String, double> get prevMonthOutByCategory => TransactionsAnalytics.prevMonthOutByCategory(entries);
+  Map<String, double> get prevMonthOutByCategory =>
+      _prevMonthOut ??= TransactionsAnalytics.prevMonthOutByCategory(entries);
 
-  Map<String, double> get spendByDay => TransactionsAnalytics.spendByDay(periodEntries);
+  Map<String, double> get spendByDay =>
+      _spendByDay ??= TransactionsAnalytics.spendByDay(periodEntries);
 
-  List<String> get txDays {
-    final days = listEntries.map((e) => e.date).toSet().toList()..sort((a, b) => b.compareTo(a));
-    return days;
-  }
+  List<String> get txDays =>
+      _txDays ??= (listEntries.map((e) => e.date).toSet().toList()
+        ..sort((a, b) => b.compareTo(a)));
 
   TransactionsTabState copyWith({
     List<DashboardEntry>? entries,
@@ -120,7 +156,9 @@ class TransactionsTabState {
       entries: entries ?? this.entries,
       search: search ?? this.search,
       statusFilter: statusFilter ?? this.statusFilter,
-      categoryFilter: clearCategoryFilter ? null : (categoryFilter ?? this.categoryFilter),
+      categoryFilter: clearCategoryFilter
+          ? null
+          : (categoryFilter ?? this.categoryFilter),
       txViewIndex: txViewIndex ?? this.txViewIndex,
       calendarDay: calendarDay ?? this.calendarDay,
       periodMode: periodMode ?? this.periodMode,
@@ -143,7 +181,9 @@ class TransactionsTabState {
   }
 
   TransactionsTabState updateEntry(DashboardEntry updated) {
-    return copyWith(entries: entries.map((e) => e.id == updated.id ? updated : e).toList());
+    return copyWith(
+      entries: entries.map((e) => e.id == updated.id ? updated : e).toList(),
+    );
   }
 
   TransactionsTabState removeEntry(String id) {

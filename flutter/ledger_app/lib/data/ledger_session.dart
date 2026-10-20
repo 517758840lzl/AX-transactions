@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../tabs/accounts/accounts_models.dart';
 import '../tabs/accounts/accounts_sample_data.dart';
 import '../tabs/accounts/accounts_tab_state.dart';
@@ -18,8 +19,8 @@ class LedgerAccountBook extends ChangeNotifier {
     required List<LedgerAccount> accounts,
     required List<LedgerHolding> holdings,
     required this.sampleCleared,
-  })  : accounts = List<LedgerAccount>.of(accounts),
-        holdings = List<LedgerHolding>.of(holdings);
+  }) : accounts = List<LedgerAccount>.of(accounts),
+       holdings = List<LedgerHolding>.of(holdings);
 
   List<LedgerAccount> accounts;
   List<LedgerHolding> holdings;
@@ -45,11 +46,17 @@ class LedgerAccountBook extends ChangeNotifier {
 
   /// 去掉 id 以 sample- 开头的账户、持仓，并让流水日志丢掉对应示例。
   void clearFilled(LedgerEntryLog entries) {
-    accounts = accounts.where((item) => !item.id.startsWith('sample-')).toList();
-    holdings = holdings.where((item) => !item.id.startsWith('sample-')).toList();
+    accounts = accounts
+        .where((item) => !item.id.startsWith('sample-'))
+        .toList();
+    holdings = holdings
+        .where((item) => !item.id.startsWith('sample-'))
+        .toList();
     sampleCleared = true;
     notifyListeners();
-    entries.publish(entries.entries.where((item) => !item.id.startsWith('sample-')).toList());
+    entries.publish(
+      entries.entries.where((item) => !item.id.startsWith('sample-')).toList(),
+    );
   }
 }
 
@@ -91,7 +98,11 @@ class LedgerSession {
         await session._write();
         return session;
       }
-      return _fromMap(Map<String, dynamic>.from(parsed), preferences);
+      final session = _fromMap(Map<String, dynamic>.from(parsed), preferences);
+      if (raw.contains('sample-holding-zttc')) {
+        await session._write();
+      }
+      return session;
     } catch (_) {
       final session = _seed(preferences);
       await session._write();
@@ -113,12 +124,23 @@ class LedgerSession {
     );
   }
 
-  static LedgerSession _fromMap(Map<String, dynamic> map, SharedPreferences preferences) {
+  static LedgerSession _fromMap(
+    Map<String, dynamic> map,
+    SharedPreferences preferences,
+  ) {
     final sampleCleared = map['sampleCleared'] == true;
     return LedgerSession(
-      entries: LedgerEntryLog(entries: _entries(map['entries'], sampleCleared: sampleCleared)),
-      budget: LedgerBudget(monthly: _money(map['monthly']), categoryCaps: _caps(map['categoryCaps'])),
-      catalog: LedgerCatalog(categories: _names(map['categories']), templates: _templates(map['templates'])),
+      entries: LedgerEntryLog(
+        entries: _entries(map['entries'], sampleCleared: sampleCleared),
+      ),
+      budget: LedgerBudget(
+        monthly: _money(map['monthly']),
+        categoryCaps: _caps(map['categoryCaps']),
+      ),
+      catalog: LedgerCatalog(
+        categories: _names(map['categories']),
+        templates: _templates(map['templates']),
+      ),
       accounts: LedgerAccountBook(
         accounts: _accounts(map['accounts'], sampleCleared: sampleCleared),
         holdings: _holdings(map['holdings'], sampleCleared: sampleCleared),
@@ -128,14 +150,40 @@ class LedgerSession {
     );
   }
 
+  var _saveQueued = false;
+
+  /// 同一次操作里账户和流水会各通知一次。合并成一次写入，磁盘上仍是最新的账。
   void _save() {
-    _writeTask = _writeTask.then((_) => _write(), onError: (Object _, StackTrace _) => _write());
+    if (_saveQueued) return;
+    _saveQueued = true;
+    _writeTask = _writeTask.then(
+      (_) {
+        _saveQueued = false;
+        return _write();
+      },
+      onError: (Object _, StackTrace _) {
+        _saveQueued = false;
+        return _write();
+      },
+    );
   }
 
   Future<void> flush() => _writeTask;
 
   Future<void> _write() {
     return _preferences.setString(_key, jsonEncode(_snapshot()));
+  }
+
+  /// 清掉账户、流水、持仓、预算和模板。分类保留，并且不再填回示例账。
+  void clearBook() {
+    entries.publish(<DashboardEntry>[]);
+    budget.save(clear: true);
+    catalog.replace(categories: catalog.categories, templates: const []);
+    accounts.replace(
+      accounts: const [],
+      holdings: const [],
+      sampleCleared: true,
+    );
   }
 
   String exportDocument({
@@ -159,25 +207,42 @@ class LedgerSession {
       final parsed = jsonDecode(raw);
       if (parsed is! Map) return false;
       final map = Map<String, dynamic>.from(parsed);
-      final sampleCleared = map.containsKey('sampleCleared') ? map['sampleCleared'] == true : accounts.sampleCleared;
+      final sampleCleared = map.containsKey('sampleCleared')
+          ? map['sampleCleared'] == true
+          : accounts.sampleCleared;
       if (map['entries'] is List) {
         entries.publish(_entries(map['entries'], sampleCleared: sampleCleared));
       }
-      if (map.containsKey('monthly') || map.containsKey('budget') || map.containsKey('categoryCaps') || map.containsKey('categoryBudgets')) {
+      if (map.containsKey('monthly') ||
+          map.containsKey('budget') ||
+          map.containsKey('categoryCaps') ||
+          map.containsKey('categoryBudgets')) {
         final monthly = _money(map['monthly']) ?? _money(map['budget']);
-        final caps = map['categoryCaps'] is Map ? _caps(map['categoryCaps']) : _caps(map['categoryBudgets']);
-        budget.save(monthly: monthly, categoryCaps: caps, clear: monthly == null && caps.isEmpty);
+        final caps = map['categoryCaps'] is Map
+            ? _caps(map['categoryCaps'])
+            : _caps(map['categoryBudgets']);
+        budget.save(
+          monthly: monthly,
+          categoryCaps: caps,
+          clear: monthly == null && caps.isEmpty,
+        );
       }
       if (map['categories'] is List || map['templates'] is List) {
         catalog.replace(
           categories: _names(map['categories']) ?? catalog.categories,
-          templates: map['templates'] is List ? _templates(map['templates']) : catalog.templates,
+          templates: map['templates'] is List
+              ? _templates(map['templates'])
+              : catalog.templates,
         );
       }
       if (map['accounts'] is List || map['holdings'] is List) {
         accounts.replace(
-          accounts: map['accounts'] is List ? _accounts(map['accounts'], sampleCleared: sampleCleared) : accounts.accounts,
-          holdings: map['holdings'] is List ? _holdings(map['holdings'], sampleCleared: sampleCleared) : accounts.holdings,
+          accounts: map['accounts'] is List
+              ? _accounts(map['accounts'], sampleCleared: sampleCleared)
+              : accounts.accounts,
+          holdings: map['holdings'] is List
+              ? _holdings(map['holdings'], sampleCleared: sampleCleared)
+              : accounts.holdings,
           sampleCleared: sampleCleared,
         );
       }
@@ -207,7 +272,12 @@ class LedgerSession {
       ],
       'accounts': [
         for (final item in accounts.accounts)
-          {'id': item.id, 'name': item.name, 'opening': item.opening, 'kind': item.kind.name},
+          {
+            'id': item.id,
+            'name': item.name,
+            'opening': item.opening,
+            'kind': item.kind.name,
+          },
       ],
       'holdings': [
         for (final item in accounts.holdings)
@@ -242,7 +312,9 @@ class LedgerSession {
 }
 
 List<DashboardEntry> _entries(Object? raw, {required bool sampleCleared}) {
-  if (raw is! List) return sampleCleared ? [] : DashboardSampleData.seedEntries();
+  if (raw is! List) {
+    return sampleCleared ? [] : DashboardSampleData.seedEntries();
+  }
   return [
     for (final item in raw)
       if (item is Map)
@@ -262,7 +334,9 @@ List<DashboardEntry> _entries(Object? raw, {required bool sampleCleared}) {
 }
 
 List<LedgerAccount> _accounts(Object? raw, {required bool sampleCleared}) {
-  if (raw is! List) return sampleCleared ? [] : AccountsSampleData.sampleAccounts();
+  if (raw is! List) {
+    return sampleCleared ? [] : AccountsSampleData.sampleAccounts();
+  }
   return [
     for (final item in raw)
       if (item is Map)
@@ -270,27 +344,57 @@ List<LedgerAccount> _accounts(Object? raw, {required bool sampleCleared}) {
           id: '${item['id'] ?? ''}',
           name: '${item['name'] ?? ''}',
           opening: _money(item['opening']) ?? 0,
-          kind: AccountKind.values.firstWhere((kind) => kind.name == item['kind'], orElse: () => AccountKind.cash),
+          kind: AccountKind.values.firstWhere(
+            (kind) => kind.name == item['kind'],
+            orElse: () => AccountKind.cash,
+          ),
         ),
   ];
 }
 
 List<LedgerHolding> _holdings(Object? raw, {required bool sampleCleared}) {
-  if (raw is! List) return sampleCleared ? [] : AccountsSampleData.sampleHoldings();
+  if (raw is! List) {
+    return sampleCleared ? [] : AccountsSampleData.sampleHoldings();
+  }
   return [
     for (final item in raw)
-      if (item is Map)
-        LedgerHolding(
-          id: '${item['id'] ?? ''}',
-          kind: HoldingKind.values.firstWhere((kind) => kind.name == item['kind'], orElse: () => HoldingKind.stock),
-          code: '${item['code'] ?? ''}',
-          name: '${item['name'] ?? ''}',
-          qty: _money(item['qty']) ?? 0,
-          costTotal: _money(item['costTotal']) ?? 0,
-          price: _money(item['price']) ?? 0,
-          priceAsOf: '${item['priceAsOf'] ?? ''}',
-        ),
+      if (item is Map) _holdingFromMap(item),
   ];
+}
+
+LedgerHolding _holdingFromMap(Map item) {
+  final id = '${item['id'] ?? ''}';
+  final code = '${item['code'] ?? ''}';
+  final name = '${item['name'] ?? ''}';
+  final qty = _money(item['qty']) ?? 0;
+  final costTotal = _money(item['costTotal']) ?? 0;
+  final price = _money(item['price']) ?? 0;
+  final priceAsOf = '${item['priceAsOf'] ?? ''}';
+  if (id == 'sample-holding-zttc' && code == '600522' && name == '中天科技') {
+    return LedgerHolding(
+      id: 'sample-holding-nvda',
+      kind: HoldingKind.stock,
+      code: 'NVDA',
+      name: '英伟达',
+      qty: qty,
+      costTotal: costTotal,
+      price: price,
+      priceAsOf: priceAsOf,
+    );
+  }
+  return LedgerHolding(
+    id: id,
+    kind: HoldingKind.values.firstWhere(
+      (kind) => kind.name == item['kind'],
+      orElse: () => HoldingKind.stock,
+    ),
+    code: code,
+    name: name,
+    qty: qty,
+    costTotal: costTotal,
+    price: price,
+    priceAsOf: priceAsOf,
+  );
 }
 
 List<String>? _names(Object? raw) {
@@ -319,7 +423,8 @@ Map<String, double> _caps(Object? raw) {
   if (raw is! Map) return {};
   return {
     for (final entry in raw.entries)
-      if (_money(entry.value) != null) entry.key.toString(): _money(entry.value)!,
+      if (_money(entry.value) != null)
+        entry.key.toString(): _money(entry.value)!,
   };
 }
 

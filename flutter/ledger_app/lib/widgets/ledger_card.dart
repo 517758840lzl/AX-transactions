@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 
@@ -12,31 +13,41 @@ class LedgerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: LedgerColors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: LedgerColors.line.withValues(alpha: 0.9)),
-        boxShadow: [BoxShadow(color: LedgerColors.ink.withValues(alpha: 0.04), blurRadius: 24, offset: const Offset(0, 10))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  Expanded(child: Text(title!, style: LedgerTextStyles.cardTitle)),
-                  ?trailing,
-                ],
-              ),
+    return RepaintBoundary(
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: LedgerColors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: LedgerColors.line.withValues(alpha: 0.9)),
+          boxShadow: [
+            BoxShadow(
+              color: LedgerColors.ink.withValues(alpha: 0.04),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
             ),
-          child,
-        ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(title!, style: LedgerTextStyles.cardTitle),
+                    ),
+                    ?trailing,
+                  ],
+                ),
+              ),
+            child,
+          ],
+        ),
       ),
     );
   }

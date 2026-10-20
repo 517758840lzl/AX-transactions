@@ -129,7 +129,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final funds = _state.holdings.where((h) => h.kind == HoldingKind.fund).toList();
 
     return ListView(
-      padding: TabPage.listPadding,
+      padding: TabPage.listPaddingRest,
       children: [
         Row(
           children: [

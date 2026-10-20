@@ -945,15 +945,31 @@ export default function LedgerApp() {
         }
     }
 
-    async function handleExport() {
-        const text = JSON.stringify(book, null, 2);
-        try {
-            await navigator.clipboard.writeText(text);
-            setExportNote(L.exportCopied);
-        } catch {
-            downloadBook(book);
-            setExportNote(L.exportDone);
-        }
+    function clearBook() {
+        if (!window.confirm(L.clearBookConfirm)) return;
+        setBook({
+            ...book,
+            sampleCleared: true,
+            accounts: [],
+            holdings: [],
+            entries: [],
+            templates: [],
+            monthlyBudget: null,
+            categoryBudgets: {},
+        });
+        flashExportNote(L.clearBookDone);
+    }
+
+    function flashExportNote(text: string) {
+        setExportNote(text);
+        window.setTimeout(() => {
+            setExportNote((current) => (current === text ? '' : current));
+        }, 2000);
+    }
+
+    function handleExport() {
+        downloadBook(book);
+        flashExportNote(L.exportDone);
     }
 
     function openAccountFeed(accountId: string) {
@@ -975,7 +991,7 @@ export default function LedgerApp() {
         <main className="ledger">
             <section className="ledger-phone">
                 <div className="ledger-stage">
-                <div className="ledger-body">
+                <div className={showFab ? 'ledger-body' : 'ledger-body is-rest'}>
                     {panel === 'entry' && (
                         <EntryForm
                             L={L}
@@ -1127,10 +1143,19 @@ export default function LedgerApp() {
                     )}
                     {panel === 'export' && (
                         <>
-                            <SubpageHead L={L} title={L.exportData} onBack={() => setPanel('none')} />
-                            <textarea className="ledger-field ledger-json" readOnly value={JSON.stringify(book, null, 2)} />
-                            <button type="button" className="ledger-pill" onClick={handleExport}>{L.exportCopy}</button>
-                            {exportNote && <p className="ledger-panel-note">{exportNote}</p>}
+                            <SubpageHead L={L} title={L.dataManage} onBack={() => setPanel('none')} />
+                            <div className="ledger-export-card">
+                                <button type="button" className="ledger-row-link" onClick={handleExport}>
+                                    <span>{L.exportBackup}</span>
+                                    <span aria-hidden="true">↓</span>
+                                </button>
+                                <div className="ledger-settings-divider" role="presentation" />
+                                <button type="button" className="ledger-row-link ledger-clear-row" onClick={clearBook}>
+                                    <span>{L.clearBook}</span>
+                                    <span aria-hidden="true">!</span>
+                                </button>
+                            </div>
+                            {exportNote && <p className="ledger-toast" role="status">{exportNote}</p>}
                         </>
                     )}
                     {panel === 'import' && (

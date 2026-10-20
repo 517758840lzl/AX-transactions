@@ -52,6 +52,10 @@
   padding: 12px 18px 88px;
 }
 
+.ledger-body.is-rest {
+  padding-bottom: 16px;
+}
+
 .ledger-body h1 {
   margin: 0;
   font-size: 26px;
@@ -181,6 +185,23 @@
 
 .ledger-panel-head button.ledger-mark-all:active {
   background: var(--pink-pressed);
+}
+
+.ledger-toast {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 48px);
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: #1c1b22;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
 }
 
 .ledger-panel-note {
@@ -1295,6 +1316,18 @@ button.ledger-card.ledger-profile {
   cursor: pointer;
   outline: none;
   text-decoration: none;
+}
+
+.ledger-export-card {
+  margin-top: 16px;
+  padding: 4px 16px;
+  border-radius: 16px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.ledger-clear-row {
+  color: #e85d75;
 }
 
 .ledger-settings .ledger-row-link {
