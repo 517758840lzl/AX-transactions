@@ -1,7 +1,13 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-16T05:28:51.702Z",
+  "updatedAt": "2026-10-19T12:53:57.193Z",
   "prototypes": [
+    {
+      "id": "item-prototypes-ledger",
+      "kind": "item",
+      "title": "ledger",
+      "itemKey": "prototypes/ledger"
+    },
     {
       "id": "item:prototypes:annotation-demo",
       "kind": "item",

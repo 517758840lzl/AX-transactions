@@ -1,0 +1,5 @@
+:root { color-scheme: light; }
+.theme-import-page { min-height: 100vh; padding: clamp(24px, 5vw, 72px); }
+.theme-import-page img { display: block; max-width: 100%; height: auto; }
+.theme-import-page button { min-height: 44px; padding: 10px 16px; }
+.theme-import-mobile { width: min(100%, 390px); aspect-ratio: 390 / 844; min-height: 844px; margin: auto; }

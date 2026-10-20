@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "themeId": "klarna-mobile",
+  "sourceCommit": "0fa70b810ff51d98fe1c142243c45ed008cd7ab0",
+  "files": [
+    {
+      "path": "DESIGN.md",
+      "hash": "sha256:37131915c457266cdfd7ab5acdf72d8a578d3e457978f6ade2757c4c93b7b28e"
+    },
+    {
+      "path": "SOURCE.md",
+      "hash": "sha256:2466ee9cacaad57684fea79c73b38d3cae412a0a04562795a84a9b20be606700"
+    },
+    {
+      "path": "assets/cover.svg",
+      "hash": "sha256:f9e60314b7d335b1b9e2ac25ce96c19691ca42ac158fa2524f98d8a855239de0"
+    },
+    {
+      "path": "assets/tokens.json",
+      "hash": "sha256:95d22c49a1021fa0a48e12cebc1424602c329f8d821f1fee1390c106b84827f8"
+    },
+    {
+      "path": "designToken.json",
+      "hash": "sha256:95d22c49a1021fa0a48e12cebc1424602c329f8d821f1fee1390c106b84827f8"
+    },
+    {
+      "path": "globals.css",
+      "hash": "sha256:e87d633c5ede9a2c4e6cf0f5aed4460eaf9999a2cb43cad5b0a7b5cadfe96a8b"
+    },
+    {
+      "path": "index.tsx",
+      "hash": "sha256:e69a5d4f1b069015be8feb579a8445af1a0bf696ed86f254fa7fe6d420e1a914"
+    },
+    {
+      "path": "style.css",
+      "hash": "sha256:78ef93b914ba14789edb3c2fd1de07b01bb059bd3327a953a0d87e7ce4d0392c"
+    },
+    {
+      "path": "theme.json",
+      "hash": "sha256:b547429ec9c54873dd896f2a45d5119a8a2cc2cdd7f77ca953851dd5221bf4ca"
+    },
+    {
+      "path": "tw.css",
+      "hash": "sha256:42070e0b45bb201b2b838a52aaaa6e965f964e0b542d97f1fe517fe59c4b75a8"
+    }
+  ]
+}
