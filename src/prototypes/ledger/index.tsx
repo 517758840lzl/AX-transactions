@@ -1,5 +1,5 @@
 /**
- * @name 记账
+ * @name SpendLogBook
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
