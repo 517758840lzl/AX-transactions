@@ -314,6 +314,177 @@ function calendarCells(year: number, month: number) {
     return cells;
 }
 
+function monthCursor(value: string) {
+    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date();
+    const safe = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    return new Date(safe.getFullYear(), safe.getMonth(), 1);
+}
+
+function weekdayMark(name: string) {
+    return name.startsWith('周') ? name.slice(1) : name;
+}
+
+function DateField({
+    id,
+    label,
+    locale,
+    value,
+    max,
+    onChange,
+    L,
+}: {
+    id?: string;
+    label: string;
+    locale: Locale;
+    value: string;
+    max?: string;
+    onChange: (value: string) => void;
+    L: Copy;
+}) {
+    const [open, setOpen] = useState(false);
+    const [cursor, setCursor] = useState(() => monthCursor(value));
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    const cells = calendarCells(year, month);
+    const title = cursor.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'long' });
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [open]);
+
+    return (
+        <>
+            <button
+                type="button"
+                id={id}
+                className="ledger-field ledger-date-trigger"
+                aria-label={label}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                onClick={() => {
+                    setCursor(monthCursor(value));
+                    setOpen(true);
+                }}
+            >
+                {value}
+            </button>
+            {open && (
+                <div className="ledger-modal-backdrop" role="presentation" onClick={() => setOpen(false)}>
+                    <div className="ledger-modal ledger-date-pop" role="dialog" aria-modal="true" aria-label={label} onClick={(event) => event.stopPropagation()}>
+                        <div className="ledger-date-pop-head">
+                            <button type="button" className="ledger-date-nav" aria-label={locale === 'zh' ? '上个月' : 'Previous month'} onClick={() => setCursor(new Date(year, month - 1, 1))}>‹</button>
+                            <b>{title}</b>
+                            <button type="button" className="ledger-date-nav" aria-label={locale === 'zh' ? '下个月' : 'Next month'} onClick={() => setCursor(new Date(year, month + 1, 1))}>›</button>
+                        </div>
+                        <div className="ledger-date-week">
+                            {L.weekday.map((name) => <span key={name}>{weekdayMark(name)}</span>)}
+                        </div>
+                        <div className="ledger-date-grid">
+                            {cells.map((cell, index) => {
+                                if (!cell.iso || cell.day == null) return <span key={`pad-${index}`} />;
+                                const disabled = max != null && cell.iso > max;
+                                return (
+                                    <button
+                                        key={cell.iso}
+                                        type="button"
+                                        disabled={disabled}
+                                        className={cell.iso === value ? 'is-on' : ''}
+                                        onClick={() => {
+                                            onChange(cell.iso as string);
+                                            setOpen(false);
+                                        }}
+                                    >
+                                        {cell.day}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <button
+                            type="button"
+                            className="ledger-date-today"
+                            onClick={() => {
+                                const today = max && max < todayIso() ? max : todayIso();
+                                onChange(today);
+                                setOpen(false);
+                            }}
+                        >
+                            {L.today}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}
+
+function ChoiceMenu({
+    id,
+    label,
+    value,
+    options,
+    onChange,
+}: {
+    id?: string;
+    label: string;
+    value: string;
+    options: { value: string; label: string }[];
+    onChange: (value: string) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const current = options.find((item) => item.value === value);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [open]);
+
+    return (
+        <>
+            <button
+                type="button"
+                id={id}
+                className="ledger-field ledger-choice-trigger"
+                aria-label={label}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                onClick={() => setOpen(true)}
+            >
+                {current?.label ?? ''}
+            </button>
+            {open && (
+                <div className="ledger-modal-backdrop" role="presentation" onClick={() => setOpen(false)}>
+                    <div className="ledger-modal ledger-choice-pop" role="listbox" aria-label={label} onClick={(event) => event.stopPropagation()}>
+                        {options.map((item) => (
+                            <button
+                                key={item.value}
+                                type="button"
+                                role="option"
+                                aria-selected={item.value === value}
+                                className={item.value === value ? 'is-on' : ''}
+                                onClick={() => {
+                                    onChange(item.value);
+                                    setOpen(false);
+                                }}
+                            >
+                                {item.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}
+
 function ledgerTabs(L: Copy): { id: PageId; title: string; icon: React.ReactNode }[] {
     return [
         { id: 'dashboard', title: L.tabDashboard, icon: <IconDashboard /> },
@@ -428,6 +599,7 @@ export default function LedgerApp() {
     const [ready, setReady] = useState(false);
     const [scope, setScope] = useState<Scope>('mine');
     const [panel, setPanel] = useState<Panel>('none');
+    const [clearAsk, setClearAsk] = useState(false);
     const [draft, setDraft] = useState<EntryDraft>(() => blankEntry(emptyBook()));
     const [accountName, setAccountName] = useState('');
     const [accountOpening, setAccountOpening] = useState('');
@@ -909,8 +1081,8 @@ export default function LedgerApp() {
         }
     }
 
-    function clearBook() {
-        if (!window.confirm(L.clearBookConfirm)) return;
+    function confirmClearBook() {
+        setClearAsk(false);
         setBook({
             ...book,
             sampleCleared: true,
@@ -959,6 +1131,7 @@ export default function LedgerApp() {
                     {panel === 'entry' && (
                         <EntryForm
                             L={L}
+                            locale={locale}
                             draft={draft}
                             book={book}
                             categories={orderedCategories}
@@ -999,17 +1172,13 @@ export default function LedgerApp() {
                         <>
                             <SubpageHead L={L} title={L.transferTitle} onBack={() => setPanel('none')} />
                             <label className="ledger-label" htmlFor="transfer-from">{L.transferFrom}</label>
-                            <select id="transfer-from" className="ledger-field" value={transferFrom} onChange={(event) => setTransferFrom(event.target.value)}>
-                                {book.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-                            </select>
+                            <ChoiceMenu id="transfer-from" label={L.transferFrom} value={transferFrom} options={book.accounts.map((account) => ({ value: account.id, label: account.name }))} onChange={setTransferFrom} />
                             <label className="ledger-label" htmlFor="transfer-to">{L.transferTo}</label>
-                            <select id="transfer-to" className="ledger-field" value={transferTo} onChange={(event) => setTransferTo(event.target.value)}>
-                                {book.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-                            </select>
+                            <ChoiceMenu id="transfer-to" label={L.transferTo} value={transferTo} options={book.accounts.map((account) => ({ value: account.id, label: account.name }))} onChange={setTransferTo} />
                             <label className="ledger-label" htmlFor="transfer-amount">{L.amount}</label>
                             <input id="transfer-amount" className="ledger-field" inputMode="decimal" value={transferAmount} onChange={(event) => setTransferAmount(event.target.value)} />
                             <label className="ledger-label" htmlFor="transfer-date">{L.date}</label>
-                            <input id="transfer-date" className="ledger-field" type="date" value={transferDate} max={todayIso()} onChange={(event) => setTransferDate(event.target.value)} />
+                            <DateField id="transfer-date" label={L.date} locale={locale} value={transferDate} max={todayIso()} onChange={setTransferDate} L={L} />
                             <button type="button" className="ledger-pill" onClick={saveTransfer} disabled={book.accounts.length < 2 || transferFrom === transferTo || !(Number(transferAmount) > 0)}>{L.save}</button>
                         </>
                     )}
@@ -1062,7 +1231,7 @@ export default function LedgerApp() {
                             <label className="ledger-label" htmlFor="holding-price">{L.holdingPrice}</label>
                             <input id="holding-price" className="ledger-field" inputMode="decimal" value={holdingPrice} placeholder="0.00" onChange={(event) => setHoldingPrice(event.target.value)} />
                             <label className="ledger-label" htmlFor="holding-price-date">{L.holdingPriceAsOf}</label>
-                            <input id="holding-price-date" className="ledger-field" type="date" value={holdingPriceDate} max={todayIso()} onChange={(event) => setHoldingPriceDate(event.target.value)} />
+                            <DateField id="holding-price-date" label={L.holdingPriceAsOf} locale={locale} value={holdingPriceDate} max={todayIso()} onChange={setHoldingPriceDate} L={L} />
                             <button
                                 type="button"
                                 className="ledger-pill"
@@ -1113,7 +1282,7 @@ export default function LedgerApp() {
                                     <span aria-hidden="true">↓</span>
                                 </button>
                                 <div className="ledger-settings-divider" role="presentation" />
-                                <button type="button" className="ledger-row-link ledger-clear-row" onClick={clearBook}>
+                                <button type="button" className="ledger-row-link ledger-clear-row" onClick={() => setClearAsk(true)}>
                                     <span>{L.clearBook}</span>
                                     <span aria-hidden="true">!</span>
                                 </button>
@@ -1136,6 +1305,7 @@ export default function LedgerApp() {
                     {panel === 'filter' && (
                         <FilterPage
                             L={L}
+                            locale={locale}
                             scope={scope}
                             periodMode={periodMode}
                             rangeFrom={rangeFrom}
@@ -1538,6 +1708,19 @@ export default function LedgerApp() {
                 )}
                 </div>
 
+                {clearAsk && (
+                    <div className="ledger-modal-backdrop" role="presentation" onClick={() => setClearAsk(false)}>
+                        <div className="ledger-modal" role="dialog" aria-modal="true" aria-labelledby="ledger-clear-title" onClick={(event) => event.stopPropagation()}>
+                            <h2 id="ledger-clear-title">{L.clearBook}</h2>
+                            <p>{L.clearBookConfirm}</p>
+                            <div className="ledger-modal-actions">
+                                <button type="button" onClick={() => setClearAsk(false)}>{L.cancel}</button>
+                                <button type="button" className="is-danger" onClick={confirmClearBook}>{L.clearBook}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <nav className="ledger-tabs" aria-label={L.mainNav}>
                     {tabs.map((tab) => (
                         <button key={tab.id} type="button" className={active === tab.id ? 'is-on' : ''} aria-current={active === tab.id ? 'page' : undefined} onClick={() => goTab(tab.id)}>
@@ -1912,8 +2095,9 @@ function SubpageHead({ L, title, onBack }: { L: Copy; title: string; onBack: () 
     );
 }
 
-function FilterPage({ L, scope, periodMode, rangeFrom, rangeTo, onScope, onToday, onMonth, onRange, onFrom, onTo, onBack }: {
+function FilterPage({ L, locale, scope, periodMode, rangeFrom, rangeTo, onScope, onToday, onMonth, onRange, onFrom, onTo, onBack }: {
     L: Copy;
+    locale: Locale;
     scope: Scope;
     periodMode: PeriodMode;
     rangeFrom: string;
@@ -1945,9 +2129,9 @@ function FilterPage({ L, scope, periodMode, rangeFrom, rangeTo, onScope, onToday
                 </div>
                 {periodMode === 'range' && (
                     <div className="ledger-dates">
-                        <input className="ledger-field" type="date" aria-label={L.rangeStart} value={rangeFrom} max={todayIso()} onChange={(event) => onFrom(event.target.value)} />
+                        <DateField label={L.rangeStart} locale={locale} value={rangeFrom} max={todayIso()} onChange={onFrom} L={L} />
                         <span>{L.rangeTo}</span>
-                        <input className="ledger-field" type="date" aria-label={L.rangeEnd} value={rangeTo} max={todayIso()} onChange={(event) => onTo(event.target.value)} />
+                        <DateField label={L.rangeEnd} locale={locale} value={rangeTo} max={todayIso()} onChange={onTo} L={L} />
                     </div>
                 )}
             </section>
@@ -1958,6 +2142,7 @@ function FilterPage({ L, scope, periodMode, rangeFrom, rangeTo, onScope, onToday
 
 function EntryForm({
     L,
+    locale,
     draft,
     book,
     categories,
@@ -1968,6 +2153,7 @@ function EntryForm({
     onBack,
 }: {
     L: Copy;
+    locale: Locale;
     draft: EntryDraft;
     book: Book;
     categories: string[];
@@ -2006,12 +2192,10 @@ function EntryForm({
                 ))}
             </div>
             <label className="ledger-label" htmlFor="entry-date">{L.date}</label>
-            <input id="entry-date" className="ledger-field" type="date" value={draft.date} onChange={(event) => onChange({ ...draft, date: event.target.value })} />
+            <DateField id="entry-date" label={L.date} locale={locale} value={draft.date} max={todayIso()} onChange={(date) => onChange({ ...draft, date })} L={L} />
             <label className="ledger-label" htmlFor="entry-account">{L.account}</label>
             {book.accounts.length > 0 ? (
-                <select id="entry-account" className="ledger-field" value={draft.accountId} onChange={(event) => onChange({ ...draft, accountId: event.target.value })}>
-                    {book.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-                </select>
+                <ChoiceMenu id="entry-account" label={L.account} value={draft.accountId} options={book.accounts.map((account) => ({ value: account.id, label: account.name }))} onChange={(accountId) => onChange({ ...draft, accountId })} />
             ) : (
                 <input id="entry-account" className="ledger-field" value={draft.accountName} onChange={(event) => onChange({ ...draft, accountName: event.target.value })} />
             )}

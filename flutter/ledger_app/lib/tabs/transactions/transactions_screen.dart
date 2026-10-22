@@ -110,6 +110,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final calendarDay = _state.calendarDay ?? _todayIso();
 
     return ListView(
+      scrollCacheExtent: TabPage.scrollCache,
       padding: TabPage.listPadding,
       children: [
         Row(

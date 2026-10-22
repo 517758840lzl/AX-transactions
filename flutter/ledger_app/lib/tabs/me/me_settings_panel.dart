@@ -70,7 +70,6 @@ class MeSettingsPanel extends StatelessWidget {
             onChanged: onCurrencyChanged,
             columns: 5,
           ),
-          const SizedBox(height: 4),
         ],
       ),
     );

@@ -5,6 +5,7 @@ import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 import '../widgets/ledger_card.dart';
 import '../widgets/ledger_pill_button.dart';
+import '../widgets/ledger_popup.dart';
 import '../widgets/ledger_segment.dart';
 import '../widgets/ledger_subpage_head.dart';
 
@@ -83,20 +84,13 @@ class _FilterPageState extends State<FilterPage> {
   }
 
   Future<void> _pickDate({required bool start}) async {
-    final initial = DateTime.tryParse(start ? _rangeFrom : _rangeTo) ?? DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (picked == null) return;
-    final iso = LedgerViewFilter.todayIso(picked);
+    final picked = await showLedgerDate(context, value: start ? _rangeFrom : _rangeTo);
+    if (picked == null || !mounted) return;
     setState(() {
       if (start) {
-        _rangeFrom = iso;
+        _rangeFrom = picked;
       } else {
-        _rangeTo = iso;
+        _rangeTo = picked;
       }
     });
   }

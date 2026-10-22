@@ -9,7 +9,9 @@ import '../tabs/me/me_models.dart';
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 import '../widgets/ledger_choice_row.dart';
+import '../widgets/ledger_field.dart';
 import '../widgets/ledger_pill_button.dart';
+import '../widgets/ledger_popup.dart';
 import '../widgets/ledger_subpage_head.dart';
 
 enum EntryEditAction { saved, deleted }
@@ -71,10 +73,12 @@ class _EntryEditPageState extends State<EntryEditPage> {
   late bool _isOut;
   late final TextEditingController _amount;
   late final TextEditingController _title;
-  late final TextEditingController _date;
+  late String _date;
   late String _category;
   late String _accountId;
   late bool _shared;
+  var _saveReady = false;
+  String? _highlightedTitle;
 
   List<LedgerAccount> get _accounts => AccountsSampleData.sampleAccounts();
 
@@ -92,10 +96,38 @@ class _EntryEditPageState extends State<EntryEditPage> {
     _isOut = entry?.isOut ?? true;
     _amount = TextEditingController(text: entry == null ? '' : entry.amount.toStringAsFixed(2));
     _title = TextEditingController(text: entry?.title ?? '');
-    _date = TextEditingController(text: entry?.date ?? LedgerViewFilter.todayIso());
+    _date = entry?.date ?? LedgerViewFilter.todayIso();
     _category = entry?.category ?? _categories.first;
     _accountId = entry?.accountId ?? (accounts.isEmpty ? '' : accounts.first.id);
     _shared = entry?.shared ?? false;
+    _amount.addListener(_onDraftText);
+    _title.addListener(_onDraftText);
+    _syncDraftFlags();
+  }
+
+  void _onDraftText() {
+    if (!mounted) return;
+    final ready = _canSave;
+    final highlighted = _highlightedFromTitle();
+    if (ready == _saveReady && highlighted == _highlightedTitle) return;
+    setState(() {
+      _saveReady = ready;
+      _highlightedTitle = highlighted;
+    });
+  }
+
+  void _syncDraftFlags() {
+    _saveReady = _canSave;
+    _highlightedTitle = _highlightedFromTitle();
+  }
+
+  String? _highlightedFromTitle() {
+    final title = _title.text.trim();
+    if (title.isEmpty) return null;
+    for (final suggestion in _titleSuggestions) {
+      if (suggestion == title) return title;
+    }
+    return null;
   }
 
   void _onCatalog() {
@@ -107,9 +139,10 @@ class _EntryEditPageState extends State<EntryEditPage> {
   @override
   void dispose() {
     widget.catalog.removeListener(_onCatalog);
+    _amount.removeListener(_onDraftText);
+    _title.removeListener(_onDraftText);
     _amount.dispose();
     _title.dispose();
-    _date.dispose();
     super.dispose();
   }
 
@@ -142,6 +175,30 @@ class _EntryEditPageState extends State<EntryEditPage> {
     return titles.take(6).toList();
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showLedgerDate(context, value: _date);
+    if (picked == null || !mounted) return;
+    setState(() => _date = picked);
+  }
+
+  String get _accountLabel {
+    for (final account in _accounts) {
+      if (account.id == _accountId) return account.name;
+    }
+    return _accounts.isEmpty ? '' : _accounts.first.name;
+  }
+
+  Future<void> _pickAccount() async {
+    if (_accounts.isEmpty) return;
+    final picked = await showLedgerChoices(
+      context,
+      selected: _accountId,
+      options: [for (final account in _accounts) LedgerChoice(account.id, account.name)],
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _accountId = picked);
+  }
+
   void _save() {
     if (!_canSave) return;
     final title = _title.text.trim();
@@ -155,7 +212,7 @@ class _EntryEditPageState extends State<EntryEditPage> {
             amount: amount,
             direction: _isOut ? 'out' : 'in',
             category: _category,
-            date: _date.text.trim().isEmpty ? LedgerViewFilter.todayIso() : _date.text.trim(),
+            date: _date,
             accountName: account.name,
             accountId: account.id,
             checked: false,
@@ -166,7 +223,7 @@ class _EntryEditPageState extends State<EntryEditPage> {
             amount: amount,
             direction: _isOut ? 'out' : 'in',
             category: _category,
-            date: _date.text.trim(),
+            date: _date,
             accountId: account.id,
             accountName: account.name,
             shared: _shared,
@@ -201,13 +258,12 @@ class _EntryEditPageState extends State<EntryEditPage> {
                 TextField(
                   controller: _amount,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() {}),
                   decoration: _fieldDecoration,
                 ),
                 const SizedBox(height: 14),
                 Text(LedgerStrings.name, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                TextField(controller: _title, onChanged: (_) => setState(() {}), decoration: _fieldDecoration),
+                TextField(controller: _title, decoration: _fieldDecoration),
                 if (_titleSuggestions.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   Text(LedgerStrings.titleSuggestions, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink, fontWeight: FontWeight.w700)),
@@ -217,7 +273,7 @@ class _EntryEditPageState extends State<EntryEditPage> {
                     runSpacing: 8,
                     children: [
                       for (final title in _titleSuggestions)
-                        _chip(title, _title.text.trim() == title, () => setState(() => _title.text = title)),
+                        _chip(title, _highlightedTitle == title, () => _title.text = title),
                     ],
                   ),
                 ],
@@ -235,18 +291,11 @@ class _EntryEditPageState extends State<EntryEditPage> {
                 const SizedBox(height: 14),
                 Text(LedgerStrings.date, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                TextField(controller: _date, decoration: _fieldDecoration),
+                LedgerTapField(value: _date, onTap: _pickDate),
                 const SizedBox(height: 14),
                 Text(LedgerStrings.account, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _accounts.any((a) => a.id == _accountId) ? _accountId : _accounts.first.id,
-                  decoration: _fieldDecoration,
-                  items: [for (final a in _accounts) DropdownMenuItem(value: a.id, child: Text(a.name))],
-                  onChanged: (id) {
-                    if (id != null) setState(() => _accountId = id);
-                  },
-                ),
+                LedgerTapField(value: _accountLabel, onTap: _pickAccount),
                 const SizedBox(height: 8),
                 InkWell(
                   onTap: () => setState(() => _shared = !_shared),
@@ -264,7 +313,7 @@ class _EntryEditPageState extends State<EntryEditPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                LedgerPillButton(label: LedgerStrings.save, onPressed: _canSave ? _save : null),
+                LedgerPillButton(label: LedgerStrings.save, onPressed: _saveReady ? _save : null),
                 if (!widget.isNew) ...[
                   const SizedBox(height: 16),
                   TextButton(onPressed: _delete, child: Text(LedgerStrings.deleteEntry, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.down))),

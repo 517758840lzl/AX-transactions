@@ -29,7 +29,20 @@ abstract final class AccountsBookMath {
   }
 
   static double accountBalanceOnDate(LedgerAccount account, List<DashboardEntry> entries, String iso) {
-    return entries.where((e) => e.accountId == account.id && e.date.compareTo(iso) <= 0).fold(account.opening, (sum, e) => sum + signedEntry(e));
+    return accountNowAndPrior(account, entries, iso).prior;
+  }
+
+  /// 当前余额与截止某日的余额一次扫完，结果与分开两次过滤相同。
+  static ({double now, double prior}) accountNowAndPrior(LedgerAccount account, List<DashboardEntry> entries, String priorIso) {
+    var now = account.opening;
+    var prior = account.opening;
+    for (final entry in entries) {
+      if (entry.accountId != account.id) continue;
+      final signed = signedEntry(entry);
+      now += signed;
+      if (entry.date.compareTo(priorIso) <= 0) prior += signed;
+    }
+    return (now: now, prior: prior);
   }
 
   static double accountsBalanceTotal(List<LedgerAccount> accounts, List<DashboardEntry> entries) {
@@ -112,15 +125,4 @@ abstract final class AccountsBookMath {
 
   static String _iso(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  static List<String> _eachDay(String start, String end) {
-    var cursor = DateTime.parse('${start}T00:00:00');
-    final last = DateTime.parse('${end}T00:00:00');
-    final out = <String>[];
-    while (!cursor.isAfter(last)) {
-      out.add(_iso(cursor));
-      cursor = cursor.add(const Duration(days: 1));
-    }
-    return out;
-  }
 }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 /// 四 Tab 主屏共用 ListView 边距（与 Web `.ledger-phone` 内边距一致）。
 abstract final class TabPage {
@@ -7,4 +7,7 @@ abstract final class TabPage {
 
   /// 没有悬浮按钮的页，最后一项只要离开底栏一小段。
   static const listPaddingRest = EdgeInsets.fromLTRB(18, 12, 18, 16);
+
+  /// 主列表预建下一屏，滑动时少做临时布局。
+  static const scrollCache = ScrollCacheExtent.pixels(480);
 }

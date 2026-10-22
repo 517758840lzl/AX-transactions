@@ -7,6 +7,7 @@ import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 import '../widgets/ledger_field.dart';
 import '../widgets/ledger_pill_button.dart';
+import '../widgets/ledger_popup.dart';
 import '../widgets/ledger_subpage_head.dart';
 
 class TransferPage extends StatefulWidget {
@@ -50,14 +51,19 @@ class _TransferPageState extends State<TransferPage> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.tryParse(_date) ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+    final picked = await showLedgerDate(context, value: _date);
+    if (picked == null || !mounted) return;
+    setState(() => _date = picked);
+  }
+
+  Future<void> _pickAccount(String selected, ValueChanged<String> onChanged) async {
+    final picked = await showLedgerChoices(
+      context,
+      selected: selected,
+      options: [for (final account in widget.accounts) LedgerChoice(account.id, account.name)],
     );
-    if (picked == null) return;
-    setState(() => _date = LedgerViewFilter.todayIso(picked));
+    if (picked == null || !mounted) return;
+    onChanged(picked);
   }
 
   void _save() {
@@ -104,11 +110,17 @@ class _TransferPageState extends State<TransferPage> {
                 LedgerSubpageHead(title: LedgerStrings.transferTitle, onBack: () => Navigator.pop(context)),
                 Text(LedgerStrings.transferFrom, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                _accountMenu(_fromId, (id) => setState(() => _fromId = id)),
+                LedgerTapField(
+                  value: widget.accounts.firstWhere((item) => item.id == _fromId).name,
+                  onTap: () => _pickAccount(_fromId, (id) => setState(() => _fromId = id)),
+                ),
                 const SizedBox(height: 16),
                 Text(LedgerStrings.transferTo, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                _accountMenu(_toId, (id) => setState(() => _toId = id)),
+                LedgerTapField(
+                  value: widget.accounts.firstWhere((item) => item.id == _toId).name,
+                  onTap: () => _pickAccount(_toId, (id) => setState(() => _toId = id)),
+                ),
                 const SizedBox(height: 16),
                 Text(LedgerStrings.amount, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
@@ -121,7 +133,7 @@ class _TransferPageState extends State<TransferPage> {
                 const SizedBox(height: 16),
                 Text(LedgerStrings.date, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                OutlinedButton(onPressed: _pickDate, child: Text(_date, style: LedgerTextStyles.note)),
+                LedgerTapField(value: _date, onTap: _pickDate),
                 const SizedBox(height: 20),
                 LedgerPillButton(label: LedgerStrings.save, onPressed: _canSave ? _save : null),
               ],
@@ -132,14 +144,4 @@ class _TransferPageState extends State<TransferPage> {
     );
   }
 
-  Widget _accountMenu(String selected, ValueChanged<String> onChanged) {
-    return DropdownButtonFormField<String>(
-      initialValue: selected,
-      decoration: ledgerFieldDecoration(),
-      items: [for (final account in widget.accounts) DropdownMenuItem(value: account.id, child: Text(account.name))],
-      onChanged: (id) {
-        if (id != null) onChanged(id);
-      },
-    );
-  }
 }

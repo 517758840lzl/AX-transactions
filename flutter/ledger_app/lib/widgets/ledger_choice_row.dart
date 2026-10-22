@@ -22,6 +22,8 @@ class LedgerChoiceRow extends StatelessWidget {
     if (columns != null) {
       return GridView.builder(
         shrinkWrap: true,
+        primary: false,
+        padding: EdgeInsets.zero,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: labels.length,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

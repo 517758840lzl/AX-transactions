@@ -148,6 +148,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final mark = widget.mark;
     return ListView(
+      scrollCacheExtent: TabPage.scrollCache,
       padding: TabPage.listPadding,
       children: [
         Row(

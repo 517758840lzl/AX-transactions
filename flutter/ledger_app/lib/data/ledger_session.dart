@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -170,8 +171,10 @@ class LedgerSession {
 
   Future<void> flush() => _writeTask;
 
-  Future<void> _write() {
-    return _preferences.setString(_key, jsonEncode(_snapshot()));
+  Future<void> _write() async {
+    final snapshot = _snapshot();
+    final encoded = await Isolate.run(() => jsonEncode(snapshot));
+    await _preferences.setString(_key, encoded);
   }
 
   /// 清掉账户、流水、持仓、预算和模板。分类保留，并且不再填回示例账。

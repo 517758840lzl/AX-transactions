@@ -181,6 +181,7 @@ class _MeScreenState extends State<MeScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      scrollCacheExtent: TabPage.scrollCache,
       padding: TabPage.listPaddingRest,
       children: [
         Text(LedgerStrings.me, style: Theme.of(context).textTheme.headlineLarge),

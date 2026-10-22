@@ -26,7 +26,8 @@ class AccountsTrendHero extends StatelessWidget {
     final deltaUp = delta >= 0;
     final amounts = state.trendAmounts;
 
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
       decoration: BoxDecoration(
@@ -89,6 +90,7 @@ class AccountsTrendHero extends StatelessWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }

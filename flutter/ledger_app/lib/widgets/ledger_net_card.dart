@@ -19,7 +19,8 @@ class LedgerNetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
       decoration: BoxDecoration(
@@ -35,6 +36,7 @@ class LedgerNetCard extends StatelessWidget {
           MoneyAmount(value: amount, mark: mark, size: MoneySize.hero, lightOnDark: true),
           if (foot != null) ...[const SizedBox(height: 10), foot!],
         ],
+      ),
       ),
     );
   }

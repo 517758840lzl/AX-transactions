@@ -75,15 +75,17 @@ class _MeCategoriesPanelState extends State<MeCategoriesPanel> {
                     isDense: true,
                   ),
                   textInputAction: TextInputAction.done,
-                  onChanged: (_) => setState(() {}),
                   onSubmitted: _submit,
                 ),
               ),
               const SizedBox(width: 8),
-              LedgerPillButton(
-                compact: true,
-                label: LedgerStrings.add,
-                onPressed: _controller.text.trim().isEmpty ? null : _submit,
+              ListenableBuilder(
+                listenable: _controller,
+                builder: (context, _) => LedgerPillButton(
+                  compact: true,
+                  label: LedgerStrings.add,
+                  onPressed: _controller.text.trim().isEmpty ? null : _submit,
+                ),
               ),
             ],
           ),

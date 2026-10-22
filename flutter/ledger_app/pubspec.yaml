@@ -91,3 +91,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# 2.5.x Android 实现在 release 里按协程签名找方法会崩，账本读不出来。
+dependency_overrides:
+  shared_preferences_android: 2.4.28

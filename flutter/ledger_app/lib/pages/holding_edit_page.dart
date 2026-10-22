@@ -8,6 +8,7 @@ import '../theme/ledger_text_styles.dart';
 import '../widgets/ledger_choice_row.dart';
 import '../widgets/ledger_field.dart';
 import '../widgets/ledger_pill_button.dart';
+import '../widgets/ledger_popup.dart';
 import '../widgets/ledger_subpage_head.dart';
 
 class HoldingEditResult {
@@ -100,15 +101,9 @@ class _HoldingEditPageState extends State<HoldingEditPage> {
   }
 
   Future<void> _pickDate() async {
-    final initial = DateTime.tryParse(_priceDate) ?? DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (picked == null) return;
-    setState(() => _priceDate = LedgerViewFilter.todayIso(picked));
+    final picked = await showLedgerDate(context, value: _priceDate);
+    if (picked == null || !mounted) return;
+    setState(() => _priceDate = picked);
   }
 
   void _save() {

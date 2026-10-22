@@ -34,8 +34,9 @@ class AccountsAccountGroup extends StatelessWidget {
     var total = 0.0;
     final toneBase = AccountsSampleData.accountKindOrder.indexOf(kind);
     for (var i = 0; i < group.length; i++) {
-      final now = AccountsBookMath.accountTotal(group[i], entries);
-      final prior = AccountsBookMath.accountBalanceOnDate(group[i], entries, windowFromPriorIso);
+      final pair = AccountsBookMath.accountNowAndPrior(group[i], entries, windowFromPriorIso);
+      final now = pair.now;
+      final prior = pair.prior;
       total += now;
       rows.add(
         AccountsAccountRow(
