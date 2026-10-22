@@ -113,7 +113,6 @@ abstract final class LedgerStrings {
   static const me = '我的';
   static const exportData = '导出账本';
   static const importData = '导入账本';
-  static const templates = '快捷模板';
   static const categories = '分类';
   static const profileHint = '点击填写昵称';
   static const privacy = '隐私协议';
@@ -162,10 +161,6 @@ abstract final class LedgerStrings {
   static const genderMale = '男';
   static const genderSecret = '保密';
   static const titleSuggestions = '常用备注';
-  static const templateAdd = '保存当前为模板';
-  static const templateDuplicate = '已有相同模板，不能重复保存';
-  static const templateSaved = '已放入快捷模板';
-  static const templateEmpty = '在记一笔页可保存常用模板';
   static const newCategory = '新分类';
   static const add = '添加';
   static const deleteEntry = '删除';

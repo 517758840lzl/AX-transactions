@@ -64,7 +64,12 @@ class MeSettingsPanel extends StatelessWidget {
             child: Text(LedgerStrings.currency, style: LedgerTextStyles.noteSemibold),
           ),
           const SizedBox(height: 8),
-          LedgerChoiceRow(labels: MeTabState.currencies, index: state.currencyIndex, onChanged: onCurrencyChanged),
+          LedgerChoiceRow(
+            labels: MeTabState.currencies,
+            index: state.currencyIndex,
+            onChanged: onCurrencyChanged,
+            columns: 5,
+          ),
           const SizedBox(height: 4),
         ],
       ),

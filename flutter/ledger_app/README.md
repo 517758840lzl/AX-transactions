@@ -16,7 +16,7 @@ flutter run
 
 | 路径 | 说明 |
 | --- | --- |
-| `lib/app/` | `LedgerApp`、`LedgerShell` |
+| `lib/app/` | `LedgerApp`、`LedgerFrame` |
 | `lib/tabs/dashboard/` | 总览 Tab |
 | `lib/tabs/transactions/` | 流水 Tab |
 | `lib/tabs/accounts/` | 账户 Tab |

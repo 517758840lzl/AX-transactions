@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/ledger_session.dart';
 import '../theme/ledger_theme.dart';
-import 'ledger_shell.dart';
+import 'ledger_frame.dart';
 
 class LedgerScrollBehavior extends MaterialScrollBehavior {
   const LedgerScrollBehavior();
@@ -24,7 +24,7 @@ class LedgerApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: LedgerTheme.light(),
       scrollBehavior: const LedgerScrollBehavior(),
-      home: LedgerShell(session: session),
+      home: LedgerFrame(session: session),
     );
   }
 }

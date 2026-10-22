@@ -1,6 +1,8 @@
 export type Gender = 'female' | 'male' | 'secret';
 export type Direction = 'out' | 'in';
-export type Currency = 'USD' | 'EUR' | 'CNY';
+export type Currency = 'USD' | 'EUR' | 'JPY' | 'GBP' | 'HKD' | 'TWD' | 'SGD' | 'AUD' | 'KRW' | 'CAD';
+
+export const currencyOptions: Currency[] = ['USD', 'EUR', 'JPY', 'GBP', 'HKD', 'TWD', 'SGD', 'AUD', 'KRW', 'CAD'];
 export type BookLocale = 'zh' | 'en';
 
 export type AccountKind = 'bank' | 'cash' | 'card' | 'other';
@@ -127,7 +129,14 @@ export function defaultMonthlyBudgetHint() {
 export const currencyMark: Record<Currency, string> = {
     USD: '$',
     EUR: '€',
-    CNY: '¥',
+    JPY: '円',
+    GBP: '£',
+    HKD: 'HK$',
+    TWD: 'NT$',
+    SGD: 'S$',
+    AUD: 'A$',
+    KRW: '₩',
+    CAD: 'C$',
 };
 
 function daysAgo(ago: number) {
@@ -215,6 +224,11 @@ export function emptyBook(): Book {
     });
 }
 
+export function normalizeCurrency(value: unknown): Currency {
+    if (value === 'CNY') return 'USD';
+    return currencyOptions.includes(value as Currency) ? (value as Currency) : 'USD';
+}
+
 export function loadBook(): Book {
     try {
         const raw = localStorage.getItem(storageKey);
@@ -234,6 +248,7 @@ export function loadBook(): Book {
             entries: parsed.entries,
             sampleCleared: parsed.sampleCleared,
             locale: parsed.locale === 'en' ? 'en' : 'zh',
+            currency: normalizeCurrency(parsed.currency),
             monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
             categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
             templates: dedupeTemplates(Array.isArray(parsed.templates) ? parsed.templates : []),

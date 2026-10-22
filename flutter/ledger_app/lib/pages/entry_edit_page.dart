@@ -75,7 +75,6 @@ class _EntryEditPageState extends State<EntryEditPage> {
   late String _category;
   late String _accountId;
   late bool _shared;
-  var _templateNote = '';
 
   List<LedgerAccount> get _accounts => AccountsSampleData.sampleAccounts();
 
@@ -141,39 +140,6 @@ class _EntryEditPageState extends State<EntryEditPage> {
         return byCount != 0 ? byCount : a.compareTo(b);
       });
     return titles.take(6).toList();
-  }
-
-  MeTemplate? get _templateDraft {
-    final title = _title.text.trim();
-    final amount = double.tryParse(_amount.text.trim());
-    if (title.isEmpty || amount == null || amount <= 0 || _accounts.isEmpty) return null;
-    final account = _accounts.firstWhere((item) => item.id == _accountId, orElse: () => _accounts.first);
-    return MeTemplate(
-      id: '',
-      title: title,
-      amount: amount,
-      direction: _isOut ? 'out' : 'in',
-      category: _categories.contains(_category) ? _category : _categories.first,
-      accountId: account.id,
-      shared: _shared,
-    );
-  }
-
-  void _saveTemplate() {
-    final draft = _templateDraft;
-    if (draft == null) return;
-    final saved = widget.catalog.addTemplate(
-      MeTemplate(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        title: draft.title,
-        amount: draft.amount,
-        direction: draft.direction,
-        category: draft.category,
-        accountId: draft.accountId,
-        shared: draft.shared,
-      ),
-    );
-    setState(() => _templateNote = saved ? LedgerStrings.templateSaved : LedgerStrings.templateDuplicate);
   }
 
   void _save() {
@@ -299,21 +265,6 @@ class _EntryEditPageState extends State<EntryEditPage> {
                 ),
                 const SizedBox(height: 16),
                 LedgerPillButton(label: LedgerStrings.save, onPressed: _canSave ? _save : null),
-                if (widget.isNew) ...[
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: _templateDraft == null || widget.catalog.hasSameTemplate(_templateDraft!) ? null : _saveTemplate,
-                    child: Text(
-                      LedgerStrings.templateAdd,
-                      style: LedgerTextStyles.noteSemibold.copyWith(
-                        color: LedgerColors.budgetOver,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  if (_templateNote.isNotEmpty)
-                    Text(_templateNote, textAlign: TextAlign.center, style: LedgerTextStyles.note),
-                ],
                 if (!widget.isNew) ...[
                   const SizedBox(height: 16),
                   TextButton(onPressed: _delete, child: Text(LedgerStrings.deleteEntry, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.down))),

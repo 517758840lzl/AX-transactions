@@ -922,6 +922,20 @@ select.ledger-field:focus {
   min-width: 88px;
 }
 
+.ledger-choice-row--wrap {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow-x: visible;
+}
+
+.ledger-choice-row--wrap button {
+  flex: none;
+  min-width: 0;
+  max-width: none;
+  padding: 10px 4px;
+  font-size: 12px;
+}
+
 .ledger-card {
   margin-top: 14px;
   padding: 16px;
@@ -1531,44 +1545,6 @@ button.ledger-card.ledger-profile {
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
-}
-
-.ledger-template-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.ledger-template-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.ledger-template-apply {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #fff;
-  font: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.ledger-template-remove {
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--wash);
-  font-size: 18px;
-  cursor: pointer;
 }
 
 .ledger-import-row input[type='file'] {

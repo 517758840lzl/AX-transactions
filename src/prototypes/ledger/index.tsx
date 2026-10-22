@@ -22,24 +22,23 @@ import {
     normalizeHoldingKind,
     parseHoldings,
     currencyMark,
+    currencyOptions,
     emptyBook,
     loadBook,
     normalizeAccountKind,
+    normalizeCurrency,
     saveBook,
     signedValue,
     categoryBudgetHint,
     defaultMonthlyBudgetHint,
     dedupeTemplates,
     starterCategories,
-    templatesEquivalent,
     withoutSample,
     type Account,
     type AccountKind,
     type Book,
-    type Currency,
     type Direction,
     type Entry,
-    type EntryTemplate,
     type Gender,
     type Holding,
     type HoldingKind,
@@ -863,42 +862,6 @@ export default function LedgerApp() {
         setPanel('none');
     }
 
-    function saveTemplateFromDraft() {
-        const amount = Number(draft.amount);
-        if (!draft.title.trim() || !Number.isFinite(amount) || amount <= 0) return;
-        const payload = {
-            title: draft.title.trim(),
-            amount,
-            direction: draft.direction,
-            category: draft.category,
-            accountId: draft.accountId,
-            shared: draft.shared,
-        };
-        if (book.templates.some((item) => templatesEquivalent(item, payload))) return;
-        const next: EntryTemplate = { id: createId(), ...payload };
-        setBook({ ...book, templates: [...book.templates, next] });
-    }
-
-    function applyTemplate(template: EntryTemplate) {
-        setDraft({
-            id: '',
-            title: template.title,
-            amount: String(template.amount),
-            direction: template.direction,
-            category: template.category,
-            date: todayIso(),
-            accountId: template.accountId,
-            accountName: book.accounts.find((item) => item.id === template.accountId)?.name ?? '',
-            shared: template.shared,
-            checked: false,
-        });
-        setPanel('entry');
-    }
-
-    function removeTemplate(id: string) {
-        setBook({ ...book, templates: book.templates.filter((item) => item.id !== id) });
-    }
-
     function applyImportedBook(parsed: Partial<Book> | null) {
         if (!parsed || !Array.isArray(parsed.entries) || !Array.isArray(parsed.accounts)) {
             setImportNote(L.importFail);
@@ -916,6 +879,7 @@ export default function LedgerApp() {
             })),
             entries: parsed.entries,
             locale: parsed.locale === 'en' ? 'en' : 'zh',
+            currency: normalizeCurrency(parsed.currency),
             monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
             categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
             templates: dedupeTemplates(Array.isArray(parsed.templates) ? parsed.templates : []),
@@ -1002,7 +966,6 @@ export default function LedgerApp() {
                             onChange={setDraft}
                             onSave={saveEntry}
                             onDelete={() => draft.id && removeEntry(draft.id)}
-                            onSaveTemplate={saveTemplateFromDraft}
                             onBack={() => setPanel('none')}
                         />
                     )}
@@ -1539,32 +1502,12 @@ export default function LedgerApp() {
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <div className="ledger-settings-block">
                                     <p className="ledger-settings-label" id="ledger-currency-label">{L.currency}</p>
-                                    <div className="ledger-choice-row ledger-choice-row--3" role="tablist" aria-labelledby="ledger-currency-label">
-                                        {(['USD', 'EUR', 'CNY'] as const).map((item) => (
+                                    <div className="ledger-choice-row ledger-choice-row--wrap" role="tablist" aria-labelledby="ledger-currency-label">
+                                        {currencyOptions.map((item) => (
                                             <button key={item} type="button" role="tab" aria-selected={book.currency === item} className={book.currency === item ? 'is-on' : ''} onClick={() => setBook({ ...book, currency: item })}>{item}</button>
                                         ))}
                                     </div>
                                 </div>
-                            </section>
-                            <section className="ledger-card">
-                                <div className="ledger-card-head">
-                                    <h2>{L.templates}</h2>
-                                </div>
-                                {book.templates.length === 0 ? (
-                                    <p className="ledger-panel-note">{L.templateEmpty}</p>
-                                ) : (
-                                    <ul className="ledger-template-list">
-                                        {book.templates.map((template) => (
-                                            <li key={template.id}>
-                                                <button type="button" className="ledger-template-apply" onClick={() => applyTemplate(template)}>
-                                                    <b>{template.title}</b>
-                                                    <MoneyAmount value={template.direction === 'out' ? -template.amount : template.amount} mark={mark} size="sm" signed />
-                                                </button>
-                                                <button type="button" className="ledger-template-remove" aria-label={L.deleteEntry} onClick={() => removeTemplate(template.id)}>×</button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
                             </section>
                             <section className="ledger-card">
                                 <div className="ledger-card-head">
@@ -1685,19 +1628,20 @@ function SpendCalendar({
             </div>
             <div className="ledger-calendar-grid" role="grid">
                 {cells.map((cell, index) => {
-                    if (!cell.iso) return <span key={`pad-${index}`} className="ledger-calendar-pad" />;
-                    const spend = spendByDay.get(cell.iso) ?? 0;
-                    const inRange = cell.iso >= bounds.start && cell.iso <= bounds.end;
+                    const iso = cell.iso;
+                    if (!iso) return <span key={`pad-${index}`} className="ledger-calendar-pad" />;
+                    const spend = spendByDay.get(iso) ?? 0;
+                    const inRange = iso >= bounds.start && iso <= bounds.end;
                     const intensity = spend > 0 ? Math.max(0.2, spend / maxSpend) : 0;
                     return (
                         <button
-                            key={cell.iso}
+                            key={iso}
                             type="button"
                             role="gridcell"
                             disabled={!inRange}
-                            className={`ledger-calendar-day${selected === cell.iso ? ' is-selected' : ''}${spend > 0 ? ' has-spend' : ''}`}
+                            className={`ledger-calendar-day${selected === iso ? ' is-selected' : ''}${spend > 0 ? ' has-spend' : ''}`}
                             style={{ '--heat': intensity } as React.CSSProperties}
-                            onClick={() => onSelect(cell.iso)}
+                            onClick={() => onSelect(iso)}
                         >
                             <span>{cell.day}</span>
                             {spend > 0 && <i aria-hidden="true" />}
@@ -2021,7 +1965,6 @@ function EntryForm({
     onChange,
     onSave,
     onDelete,
-    onSaveTemplate,
     onBack,
 }: {
     L: Copy;
@@ -2032,23 +1975,9 @@ function EntryForm({
     onChange: (draft: EntryDraft) => void;
     onSave: () => void;
     onDelete: () => void;
-    onSaveTemplate: () => void;
     onBack: () => void;
 }) {
     const amountOk = Number(draft.amount) > 0;
-    const templateDuplicate = useMemo(() => {
-        if (!draft.title.trim() || !amountOk) return false;
-        const amount = Number(draft.amount);
-        const payload = {
-            title: draft.title.trim(),
-            amount,
-            direction: draft.direction,
-            category: draft.category,
-            accountId: draft.accountId,
-            shared: draft.shared,
-        };
-        return book.templates.some((item) => templatesEquivalent(item, payload));
-    }, [book.templates, draft, amountOk]);
     return (
         <>
             <SubpageHead L={L} title={draft.id ? L.entryEdit : L.entryNew} onBack={onBack} />
@@ -2091,12 +2020,6 @@ function EntryForm({
                 {L.shared}
             </label>
             <button type="button" className="ledger-pill" onClick={onSave} disabled={!draft.title.trim() || !amountOk}>{L.save}</button>
-            {!draft.id && (
-                <>
-                    <button type="button" className="ledger-text-button" onClick={onSaveTemplate} disabled={!draft.title.trim() || !amountOk || templateDuplicate}>{L.templateAdd}</button>
-                    {templateDuplicate && <p className="ledger-panel-note">{L.templateDuplicate}</p>}
-                </>
-            )}
             {draft.id && <button type="button" className="ledger-text-button" onClick={onDelete}>{L.deleteEntry}</button>}
         </>
     );

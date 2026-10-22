@@ -19,7 +19,33 @@ class MeTabState {
         templates = templates ?? const [],
         entries = entries ?? DashboardSampleData.seedEntries();
 
-  static const currencies = ['USD', 'EUR', 'CNY'];
+  static const currencies = ['USD', 'EUR', 'JPY', 'GBP', 'HKD', 'TWD', 'SGD', 'AUD', 'KRW', 'CAD'];
+
+  static const currencyMarks = <String, String>{
+    'USD': r'$',
+    'EUR': '€',
+    'JPY': '円',
+    'GBP': '£',
+    'HKD': 'HK\$',
+    'TWD': 'NT\$',
+    'SGD': 'S\$',
+    'AUD': 'A\$',
+    'KRW': '₩',
+    'CAD': 'C\$',
+  };
+
+  static String markFor(String code) => currencyMarks[code] ?? r'$';
+
+  static String markAt(int index) {
+    if (index < 0 || index >= currencies.length) return r'$';
+    return markFor(currencies[index]);
+  }
+
+  static int indexOfCurrency(String? code) {
+    if (code == null || code == 'CNY') return 0;
+    final index = currencies.indexOf(code);
+    return index < 0 ? 0 : index;
+  }
 
   final String nickname;
   final MeGender gender;
@@ -120,7 +146,7 @@ class MeTabState {
         nickname: nick,
         gender: gender,
         localeIndex: map['locale'] == 'en' ? 1 : 0,
-        currencyIndex: currencies.indexOf(cur).clamp(0, currencies.length - 1),
+        currencyIndex: indexOfCurrency(cur),
         budget: b is num && b > 0 ? b.toDouble() : null,
         categories: cats is List ? cats.map((e) => e.toString()).toList() : List.from(MeStarter.categories),
       );

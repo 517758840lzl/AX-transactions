@@ -12,22 +12,30 @@ import '../../pages/book_import_page.dart';
 import '../../pages/budget_page.dart';
 import '../../pages/privacy_page.dart';
 import '../../pages/profile_page.dart';
-import 'me_models.dart';
 import 'me_profile_card.dart';
 import 'me_settings_panel.dart';
-import '../dashboard/dashboard_models.dart';
 import 'me_streak.dart';
 import 'me_tab_state.dart';
-import 'me_templates_panel.dart';
 
 class MeScreen extends StatefulWidget {
-  const MeScreen({super.key, this.mark = '\$', required this.budget, required this.catalog, required this.entries, this.session});
+  const MeScreen({
+    super.key,
+    this.mark = r'$',
+    required this.budget,
+    required this.catalog,
+    required this.entries,
+    this.session,
+    this.currencyIndex = 0,
+    this.onCurrencyChanged,
+  });
 
   final String mark;
   final LedgerBudget budget;
   final LedgerCatalog catalog;
   final LedgerEntryLog entries;
   final LedgerSession? session;
+  final int currencyIndex;
+  final ValueChanged<int>? onCurrencyChanged;
 
   @override
   State<MeScreen> createState() => _MeScreenState();
@@ -39,10 +47,22 @@ class _MeScreenState extends State<MeScreen> {
   @override
   void initState() {
     super.initState();
-    _state = MeTabState.initial().copyWith(budget: widget.budget.monthly, categoryBudgets: widget.budget.categoryCaps);
+    _state = MeTabState.initial().copyWith(
+      budget: widget.budget.monthly,
+      categoryBudgets: widget.budget.categoryCaps,
+      currencyIndex: widget.currencyIndex,
+    );
     widget.budget.addListener(_syncBudget);
     widget.catalog.addListener(_refresh);
     widget.entries.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(covariant MeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currencyIndex != widget.currencyIndex && _state.currencyIndex != widget.currencyIndex) {
+      _state = _state.copyWith(currencyIndex: widget.currencyIndex);
+    }
   }
 
   void _refresh() {
@@ -127,6 +147,7 @@ class _MeScreenState extends State<MeScreen> {
           clearStatusNote: true,
         );
       });
+      widget.onCurrencyChanged?.call(imported.currencyIndex);
       if (session == null) {
         widget.budget.save(monthly: imported.budget, categoryCaps: widget.budget.categoryCaps);
         widget.catalog.replace(categories: imported.categories, templates: widget.catalog.templates);
@@ -152,26 +173,9 @@ class _MeScreenState extends State<MeScreen> {
 
   Future<void> _openPrivacy() => PrivacyPage.open(context);
 
-  void _applyTemplate(MeTemplate template) {
-    final now = DateTime.now();
-    final iso =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final category = template.category.isNotEmpty ? template.category : widget.catalog.categories.first;
-    widget.entries.add(
-      DashboardEntry(
-        id: 'local-${now.millisecondsSinceEpoch}',
-        title: template.title,
-        amount: template.amount,
-        direction: template.direction,
-        category: category,
-        date: iso,
-        accountName: '现金',
-        accountId: template.accountId.isEmpty ? 'sample-cash' : template.accountId,
-        checked: false,
-        shared: template.shared,
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已记一笔：${template.title}')));
+  void _changeCurrency(int index) {
+    setState(() => _state = _state.copyWith(currencyIndex: index));
+    widget.onCurrencyChanged?.call(index);
   }
 
   @override
@@ -197,13 +201,7 @@ class _MeScreenState extends State<MeScreen> {
           onImport: _openImport,
           onPrivacy: _openPrivacy,
           onLocaleChanged: (i) => setState(() => _state = _state.copyWith(localeIndex: i)),
-          onCurrencyChanged: (i) => setState(() => _state = _state.copyWith(currencyIndex: i)),
-        ),
-        MeTemplatesPanel(
-          templates: widget.catalog.templates,
-          mark: widget.mark,
-          onApply: _applyTemplate,
-          onRemove: widget.catalog.removeTemplate,
+          onCurrencyChanged: _changeCurrency,
         ),
         MeCategoriesPanel(
           categories: widget.catalog.categories,

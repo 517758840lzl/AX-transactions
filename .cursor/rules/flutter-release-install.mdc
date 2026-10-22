@@ -1,0 +1,13 @@
+---
+description: Flutter 装到真机时打 release，不打 debug
+alwaysApply: true
+---
+
+# Flutter 真机安装用 release
+
+把本项目 Flutter 应用（`flutter/ledger_app`）装到安卓/iOS **真机**时：
+
+- 使用 **release** 构建，不要用 debug。
+- 安卓优先：`flutter run --release -d <device>`，或 `flutter build apk --release` / `appbundle` 后再 `adb install -r`。
+- 不要默认执行无 `--release` 的 `flutter run`（会打 debug 包）。
+- 仅当用户明确要求调试、热重载或查崩溃日志时，才用 debug。

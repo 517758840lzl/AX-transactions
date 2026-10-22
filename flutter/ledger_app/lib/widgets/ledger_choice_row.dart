@@ -3,14 +3,40 @@ import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 
 class LedgerChoiceRow extends StatelessWidget {
-  const LedgerChoiceRow({super.key, required this.labels, required this.index, required this.onChanged});
+  const LedgerChoiceRow({
+    super.key,
+    required this.labels,
+    required this.index,
+    required this.onChanged,
+    this.columns,
+  });
 
   final List<String> labels;
   final int index;
   final ValueChanged<int> onChanged;
+  /// 有值时按网格换行（货币等多项）；否则单行均分。
+  final int? columns;
 
   @override
   Widget build(BuildContext context) {
+    if (columns != null) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: labels.length,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns!,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          mainAxisExtent: 44,
+        ),
+        itemBuilder: (context, i) => _ChoiceChip(
+          label: labels[i],
+          selected: i == index,
+          onTap: () => onChanged(i),
+        ),
+      );
+    }
     return Row(
       children: [
         for (var i = 0; i < labels.length; i++) ...[

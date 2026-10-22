@@ -8,28 +8,31 @@ import '../pages/entry_edit_page.dart';
 import '../tabs/accounts/accounts_screen.dart';
 import '../tabs/dashboard/dashboard_screen.dart';
 import '../tabs/me/me_screen.dart';
+import '../tabs/me/me_tab_state.dart';
 import '../tabs/transactions/transactions_screen.dart';
 import '../theme/ledger_colors.dart';
 import '../widgets/ledger_bottom_nav.dart';
 import '../widgets/ledger_fab.dart';
 
-class LedgerShell extends StatefulWidget {
-  const LedgerShell({super.key, this.session});
+class LedgerFrame extends StatefulWidget {
+  const LedgerFrame({super.key, this.session});
 
   final LedgerSession? session;
 
   @override
-  State<LedgerShell> createState() => _LedgerShellState();
+  State<LedgerFrame> createState() => _LedgerFrameState();
 }
 
-class _LedgerShellState extends State<LedgerShell> {
+class _LedgerFrameState extends State<LedgerFrame> {
   var tab = 0;
-  static const mark = '\$';
+  var _currencyIndex = 0;
   late final LedgerEntryLog _entries;
   late final LedgerBudget _budget;
   late final LedgerCatalog _catalog;
   LedgerAccountBook? _accounts;
   final _pages = List<Widget?>.filled(4, null);
+
+  String get mark => MeTabState.markAt(_currencyIndex);
 
   @override
   void initState() {
@@ -39,6 +42,17 @@ class _LedgerShellState extends State<LedgerShell> {
     _budget = session?.budget ?? LedgerBudget();
     _catalog = session?.catalog ?? LedgerCatalog();
     _accounts = session?.accounts;
+  }
+
+  void _setCurrencyIndex(int index) {
+    if (index == _currencyIndex) return;
+    setState(() {
+      _currencyIndex = index;
+      // 金额符号变了：重建总览/流水/账户；「我的」保留本页状态
+      _pages[0] = null;
+      _pages[1] = null;
+      _pages[2] = null;
+    });
   }
 
   Future<void> _createEntry() async {
@@ -60,7 +74,15 @@ class _LedgerShellState extends State<LedgerShell> {
       0 => DashboardScreen(mark: mark, entries: _entries, budget: _budget, catalog: _catalog, book: _accounts, onOpenTransactions: _openTransactions, onCreateEntry: _createEntry),
       1 => TransactionsScreen(mark: mark, entries: _entries, catalog: _catalog, book: _accounts),
       2 => AccountsScreen(mark: mark, entries: _entries, book: _accounts),
-      _ => MeScreen(mark: mark, budget: _budget, catalog: _catalog, entries: _entries, session: widget.session),
+      _ => MeScreen(
+          mark: mark,
+          budget: _budget,
+          catalog: _catalog,
+          entries: _entries,
+          session: widget.session,
+          currencyIndex: _currencyIndex,
+          onCurrencyChanged: _setCurrencyIndex,
+        ),
     };
   }
 

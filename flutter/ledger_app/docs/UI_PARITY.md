@@ -61,11 +61,11 @@
 | 总览 | `dashboard` | `DashboardScreen` + 各 panel | ✅ 净资产；**设置预算**（未设时单行）/ 已设预算进度；**本月支出节奏**（独立 panel）；待核对；固定扣款；本月分类；示例清空 |
 | 流水 | `transactions` | `TransactionsScreen` + 子组件 | ✅ 搜索；列表/日历 segment；全部/未核对/已核对；分类·周期 card+环形图+排名；日历；按日流水+核对；示例清空 |
 | 账户 | `accounts` | `AccountsScreen` + 子组件 | ✅ 账户数；示例清空；净资产=账户+持仓；余额/市值 foot；走势曲线+区间变动；按类型分组+行内涨跌%；股票/ETF 与基金分组（可空提示）；≥2 户才转账 |
-| 我的 | `me` | `MeScreen` + 子组件 | ✅ 资料卡（昵称+性别+连续记账）；设置 card；模板列表/空态；分类 7 项+编辑+新分类+添加 |
+| 我的 | `me` | `MeScreen` + 子组件 | ✅ 资料卡（昵称+性别+连续记账）；设置 card（货币 USD/EUR/JPY/GBP/HKD/TWD/SGD/AUD/KRW/CAD，默认 USD，无人民币 ¥）；分类 7 项+编辑+新分类+添加；无快捷模板 |
 
 ## 验收步骤（每次改 UI 必做）
 
-1. 浏览器打开 `/?projectId=Transactions&p=ledger` 与 Flutter `flutter run` 同尺寸（390 宽）。Flutter 真机/模拟器须在 `LedgerShell` 使用顶部 `SafeArea`（Web 预览框自带状态栏区域）。
+1. 浏览器打开 `/?projectId=Transactions&p=ledger` 与 Flutter `flutter run` 同尺寸（390 宽）。Flutter 真机/模拟器须在 `LedgerFrame` 使用顶部 `SafeArea`（Web 预览框自带状态栏区域）。
 2. 四 Tab 各截图：顶栏、hero、首屏面板、底栏。
 3. 核对：色值、圆角（22 hero / 20 卡片 / 14 字段 / 999 pill）、字号（26 标题 / 36 hero 金额 / 11 tab）。
 4. 更新本表「状态」列。
@@ -73,6 +73,8 @@
 ## 逻辑与数据
 
 Flutter 当前为 **UI 壳 + 演示数字**；业务与 `store.ts` 同步属下一阶段。UI 对齐 **不依赖** 数据一致，但演示数宜与 sample 账接近便于肉眼对比。
+
+**货币（与 Web 对齐）**：默认 USD；选项 USD/EUR/JPY/GBP/HKD/TWD/SGD/AUD/KRW/CAD；无 CNY、无人民币 `¥`（JPY 用 `円`）。切换货币后总览/流水/账户金额符号跟随更新。
 
 **账户 hero 与 Web 对齐的 sample（无持仓）**：净资产 **3722.96**、30 天区间 **+76.9%**（见 `test/accounts_sample_math_test.dart`）。若 Flutter 出现 **3 万+ 与「市值」脚注**，说明本地多了持仓数据；Web 默认 `holdings: []` 只有现金+卡余额。
 
