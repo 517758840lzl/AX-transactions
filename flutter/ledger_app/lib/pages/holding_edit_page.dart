@@ -5,6 +5,7 @@ import '../tabs/accounts/accounts_labels.dart';
 import '../tabs/accounts/accounts_models.dart';
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
+import '../widgets/center_note.dart';
 import '../widgets/ledger_choice_row.dart';
 import '../widgets/ledger_field.dart';
 import '../widgets/ledger_pill_button.dart';
@@ -93,7 +94,7 @@ class _HoldingEditPageState extends State<HoldingEditPage> {
     return qty != null && qty > 0 && cost != null && cost >= 0 && price != null && price > 0;
   }
 
-  bool _isDuplicate(HoldingKind kind, String code) {
+  bool _isDuplicate(String kind, String code) {
     final key = code.trim().toUpperCase();
     return widget.existing.any(
       (item) => item.id != widget.holding?.id && item.kind == kind && item.code.trim().toUpperCase() == key,
@@ -111,7 +112,7 @@ class _HoldingEditPageState extends State<HoldingEditPage> {
     final kind = _kinds[_kindIndex];
     final code = _code.text.trim();
     if (_isDuplicate(kind, code)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(LedgerStrings.holdingDuplicate)));
+      showCenterNote(context, LedgerStrings.holdingDuplicate);
       return;
     }
     final qty = double.parse(_qty.text.trim());

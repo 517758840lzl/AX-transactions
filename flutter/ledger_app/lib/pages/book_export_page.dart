@@ -1,11 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../data/book_file.dart';
 import '../l10n/ledger_strings.dart';
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
+import '../widgets/center_note.dart';
 import '../widgets/ledger_subpage_head.dart';
 
 class BookExportPage extends StatefulWidget {
@@ -36,52 +35,14 @@ class BookExportPage extends StatefulWidget {
 }
 
 class _BookExportPageState extends State<BookExportPage> {
-  OverlayEntry? _toastEntry;
-  Timer? _toastTimer;
-
   @override
   void dispose() {
-    _toastTimer?.cancel();
-    _toastEntry?.remove();
-    _toastEntry = null;
+    dismissCenterNote();
     super.dispose();
   }
 
   void _toast(String message) {
-    _toastTimer?.cancel();
-    _toastEntry?.remove();
-    final entry = OverlayEntry(
-      builder: (context) {
-        final colors = Theme.of(context).colorScheme;
-        return IgnorePointer(
-          child: Center(
-            child: Material(
-              color: colors.inverseSurface,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Text(
-                  message,
-                  style: LedgerTextStyles.note.copyWith(
-                    color: colors.onInverseSurface,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-    _toastEntry = entry;
-    Overlay.of(context).insert(entry);
-    _toastTimer = Timer(const Duration(seconds: 2), () {
-      if (_toastEntry != entry) return;
-      entry.remove();
-      _toastEntry = null;
-    });
+    showCenterNote(context, message);
   }
 
   Future<void> _download() async {

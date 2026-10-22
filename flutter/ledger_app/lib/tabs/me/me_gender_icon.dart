@@ -6,23 +6,26 @@ import 'me_models.dart';
 class MeGenderIcon extends StatelessWidget {
   const MeGenderIcon({super.key, required this.gender});
 
-  final MeGender gender;
+  final String gender;
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (gender) {
-      MeGender.female => LedgerStrings.genderFemale,
-      MeGender.male => LedgerStrings.genderMale,
-      MeGender.secret => LedgerStrings.genderSecret,
-    };
+    final String label;
+    final IconData icon;
+    if (gender == MeGender.female) {
+      label = LedgerStrings.genderFemale;
+      icon = Icons.female;
+    } else if (gender == MeGender.male) {
+      label = LedgerStrings.genderMale;
+      icon = Icons.male;
+    } else {
+      label = LedgerStrings.genderSecret;
+      icon = Icons.lock_outline;
+    }
     return Semantics(
       label: label,
       child: Icon(
-        switch (gender) {
-          MeGender.female => Icons.female,
-          MeGender.male => Icons.male,
-          MeGender.secret => Icons.lock_outline,
-        },
+        icon,
         size: 18,
         color: LedgerColors.muted,
       ),

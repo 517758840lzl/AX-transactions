@@ -12,6 +12,7 @@ import '../../pages/book_import_page.dart';
 import '../../pages/budget_page.dart';
 import '../../pages/privacy_page.dart';
 import '../../pages/profile_page.dart';
+import '../../widgets/center_note.dart';
 import 'me_profile_card.dart';
 import 'me_settings_panel.dart';
 import 'me_streak.dart';
@@ -121,7 +122,7 @@ class _MeScreenState extends State<MeScreen> {
     if (session != null) {
       return session.exportDocument(
         nickname: _state.nickname,
-        gender: _state.gender.name,
+        gender: _state.gender,
         locale: _state.localeIndex == 0 ? 'zh' : 'en',
         currency: MeTabState.currencies[_state.currencyIndex],
       );
@@ -208,7 +209,7 @@ class _MeScreenState extends State<MeScreen> {
           categories: widget.catalog.categories,
           onAdd: (name) {
             widget.catalog.addCategory(name);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已添加分类：$name')));
+            showCenterNote(context, LedgerStrings.categoryAdded(name));
           },
           onRemove: (name) {
             final fallback = widget.catalog.removeCategory(name);

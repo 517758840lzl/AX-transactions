@@ -2,16 +2,16 @@ import '../../l10n/ledger_strings.dart';
 import 'accounts_models.dart';
 
 abstract final class AccountsLabels {
-  static String accountKind(AccountKind kind) => switch (kind) {
-        AccountKind.bank => LedgerStrings.accountKindBank,
-        AccountKind.cash => LedgerStrings.accountKindCash,
-        AccountKind.card => LedgerStrings.accountKindCard,
-        AccountKind.other => LedgerStrings.accountKindOther,
-      };
+  static String accountKind(String kind) {
+    if (kind == AccountKind.bank) return LedgerStrings.accountKindBank;
+    if (kind == AccountKind.card) return LedgerStrings.accountKindCard;
+    if (kind == AccountKind.other) return LedgerStrings.accountKindOther;
+    return LedgerStrings.accountKindCash;
+  }
 
-  static String holdingKind(HoldingKind kind) => switch (kind) {
-        HoldingKind.stock => LedgerStrings.holdingKindStock,
-        HoldingKind.etf => LedgerStrings.holdingKindEtf,
-        HoldingKind.fund => LedgerStrings.holdingKindFund,
-      };
+  static String holdingKind(String kind) {
+    if (kind == HoldingKind.etf) return LedgerStrings.holdingKindEtf;
+    if (kind == HoldingKind.fund) return LedgerStrings.holdingKindFund;
+    return LedgerStrings.holdingKindStock;
+  }
 }

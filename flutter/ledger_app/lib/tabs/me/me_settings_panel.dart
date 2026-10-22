@@ -57,7 +57,7 @@ class MeSettingsPanel extends StatelessWidget {
               child: Text(LedgerStrings.language, style: LedgerTextStyles.noteSemibold),
             ),
           ),
-          LedgerChoiceRow(labels: const ['中文', 'English'], index: state.localeIndex, onChanged: onLocaleChanged),
+          LedgerChoiceRow(labels: const [LedgerStrings.localeZh, LedgerStrings.localeEn], index: state.localeIndex, onChanged: onLocaleChanged),
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,

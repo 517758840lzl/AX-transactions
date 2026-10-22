@@ -19,7 +19,7 @@ class AccountsAccountGroup extends StatelessWidget {
     required this.onOpenAccount,
   });
 
-  final AccountKind kind;
+  final String kind;
   final List<LedgerAccount> accounts;
   final List<DashboardEntry> entries;
   final String mark;

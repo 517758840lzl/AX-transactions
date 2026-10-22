@@ -1,3 +1,4 @@
+import '../../l10n/ledger_strings.dart';
 import '../dashboard/dashboard_models.dart';
 import '../dashboard/dashboard_sample_data.dart';
 import 'me_models.dart';
@@ -48,7 +49,7 @@ class MeTabState {
   }
 
   final String nickname;
-  final MeGender gender;
+  final String gender;
   final int localeIndex;
   final int currencyIndex;
   final double? budget;
@@ -62,9 +63,9 @@ class MeTabState {
 
   bool get loggedToday => MeStreak.loggedToday(entries);
 
-  String get displayName => nickname.isEmpty ? '未设置' : nickname;
+  String get displayName => nickname.isEmpty ? LedgerStrings.unsetName : nickname;
 
-  String get avatarInitial => nickname.isEmpty ? '未' : nickname.substring(0, 1);
+  String get avatarInitial => nickname.isEmpty ? LedgerStrings.unsetMark : nickname.substring(0, 1);
 
   bool get hasNickname => nickname.isNotEmpty;
 
@@ -72,7 +73,7 @@ class MeTabState {
 
   Map<String, Object?> toBookSnapshot() => {
         'nickname': nickname,
-        'gender': gender.name,
+        'gender': gender,
         'locale': localeIndex == 0 ? 'zh' : 'en',
         'currency': currencies[currencyIndex],
         'budget': budget,
@@ -88,7 +89,7 @@ class MeTabState {
 
   MeTabState copyWith({
     String? nickname,
-    MeGender? gender,
+    String? gender,
     int? localeIndex,
     int? currencyIndex,
     double? budget,
@@ -141,7 +142,7 @@ class MeTabState {
       final b = map['budget'];
       final cats = map['categories'];
       final genderRaw = map['gender'] as String? ?? 'secret';
-      final gender = MeGender.values.firstWhere((g) => g.name == genderRaw, orElse: () => MeGender.secret);
+      final gender = MeGender.read(genderRaw);
       return MeTabState(
         nickname: nick,
         gender: gender,

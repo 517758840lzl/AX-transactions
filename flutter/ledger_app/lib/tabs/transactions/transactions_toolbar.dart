@@ -18,7 +18,7 @@ class TransactionsToolbar extends StatelessWidget {
   final TransactionsTabState state;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<int> onViewChanged;
-  final ValueChanged<TransactionsStatusFilter> onStatusFilterChanged;
+  final ValueChanged<String> onStatusFilterChanged;
   final VoidCallback onClearCategoryFilter;
 
   @override

@@ -4,7 +4,11 @@ import '../dashboard/dashboard_sample_data.dart';
 import '../dashboard/dashboard_slice_colors.dart';
 import 'transactions_analytics.dart';
 
-enum TransactionsStatusFilter { all, open, done }
+abstract final class TransactionsStatusFilter {
+  static const all = 'all';
+  static const open = 'open';
+  static const done = 'done';
+}
 
 class TransactionsSpendPart {
   const TransactionsSpendPart({
@@ -36,12 +40,12 @@ class TransactionsTabState {
 
   final List<DashboardEntry> entries;
   final String search;
-  final TransactionsStatusFilter statusFilter;
+  final String statusFilter;
   final String? categoryFilter;
   final int txViewIndex;
   final String? calendarDay;
-  final LedgerPeriodMode periodMode;
-  final LedgerScope scope;
+  final String periodMode;
+  final String scope;
   final String rangeFrom;
   final String rangeTo;
   final bool sampleCleared;
@@ -141,13 +145,13 @@ class TransactionsTabState {
   TransactionsTabState copyWith({
     List<DashboardEntry>? entries,
     String? search,
-    TransactionsStatusFilter? statusFilter,
+    String? statusFilter,
     String? categoryFilter,
     bool clearCategoryFilter = false,
     int? txViewIndex,
     String? calendarDay,
-    LedgerPeriodMode? periodMode,
-    LedgerScope? scope,
+    String? periodMode,
+    String? scope,
     String? rangeFrom,
     String? rangeTo,
     bool? sampleCleared,

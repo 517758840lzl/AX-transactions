@@ -5,6 +5,8 @@ import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import androidx.core.app.ActivityCompat
@@ -13,27 +15,47 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+
+object LedgerAndroidCodes {
+    const val downloadChannel = "ledger/downloads"
+    const val downloadRequest = 41
+}
 
 class MainActivity : FlutterActivity() {
+    private val io = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val closed = AtomicBoolean(false)
     private var pendingName: String? = null
     private var pendingText: String? = null
     private var pendingResult: MethodChannel.Result? = null
+    private var pendingReply: AtomicBoolean? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ledger/downloads")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LedgerAndroidCodes.downloadChannel)
             .setMethodCallHandler { call, result ->
-                if (call.method != "save") {
-                    result.notImplemented()
-                    return@setMethodCallHandler
+                try {
+                    if (call.method != "save") {
+                        result.notImplemented()
+                        return@setMethodCallHandler
+                    }
+                    if (closed.get()) {
+                        result.error("save", "save failed", null)
+                        return@setMethodCallHandler
+                    }
+                    val name = call.argument<String>("name")
+                    val text = call.argument<String>("text")
+                    if (name.isNullOrEmpty() || text == null) {
+                        result.error("save", "missing", null)
+                        return@setMethodCallHandler
+                    }
+                    saveDownload(name, text, result)
+                } catch (error: Throwable) {
+                    Log.e("LedgerDownload", "save failed: ${error.javaClass.name}")
+                    result.error("save", "save failed", null)
                 }
-                val name = call.argument<String>("name")
-                val text = call.argument<String>("text")
-                if (name.isNullOrEmpty() || text == null) {
-                    result.error("save", "missing", null)
-                    return@setMethodCallHandler
-                }
-                saveDownload(name, text, result)
             }
     }
 
@@ -44,15 +66,42 @@ class MainActivity : FlutterActivity() {
             pendingName = name
             pendingText = text
             pendingResult = result
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), downloadRequest)
+            pendingReply = AtomicBoolean(false)
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                LedgerAndroidCodes.downloadRequest,
+            )
             return
         }
+        writeAsync(name, text, result, AtomicBoolean(false))
+    }
+
+    private fun writeAsync(name: String, text: String, result: MethodChannel.Result, gate: AtomicBoolean) {
+        io.execute {
+            var failed = false
+            try {
+                writeDownload(name, text)
+            } catch (error: Throwable) {
+                failed = true
+                Log.e("LedgerDownload", "save failed: ${error.javaClass.name}")
+            }
+            mainHandler.post {
+                reply(result, gate, if (failed) "save failed" else null)
+            }
+        }
+    }
+
+    private fun reply(result: MethodChannel.Result, gate: AtomicBoolean, errorMessage: String?) {
+        if (!gate.compareAndSet(false, true)) return
         try {
-            writeDownload(name, text)
-            result.success(null)
-        } catch (error: Exception) {
-            Log.e("LedgerDownload", "save failed", error)
-            result.error("save", error.message, null)
+            if (errorMessage == null) {
+                result.success(null)
+            } else {
+                result.error("save", errorMessage, null)
+            }
+        } catch (error: Throwable) {
+            Log.e("LedgerDownload", "save failed: ${error.javaClass.name}")
         }
     }
 
@@ -73,8 +122,8 @@ class MainActivity : FlutterActivity() {
             return
         }
         val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        if (!dir.exists()) {
-            dir.mkdirs()
+        if (!dir.exists() && !dir.mkdirs() && !dir.isDirectory) {
+            throw IllegalStateException("directory")
         }
         File(dir, name).writeBytes(bytes)
     }
@@ -85,28 +134,37 @@ class MainActivity : FlutterActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != downloadRequest) return
+        if (requestCode != LedgerAndroidCodes.downloadRequest) return
         val name = pendingName
         val text = pendingText
         val result = pendingResult
+        val gate = pendingReply ?: AtomicBoolean(false)
         pendingName = null
         pendingText = null
         pendingResult = null
+        pendingReply = null
         if (name == null || text == null || result == null) return
         if (grantResults.firstOrNull() != PackageManager.PERMISSION_GRANTED) {
-            result.error("save", "permission", null)
+            reply(result, gate, "permission")
             return
         }
-        try {
-            writeDownload(name, text)
-            result.success(null)
-        } catch (error: Exception) {
-            Log.e("LedgerDownload", "save failed", error)
-            result.error("save", error.message, null)
-        }
+        writeAsync(name, text, result, gate)
     }
 
-    companion object {
-        private const val downloadRequest = 41
+    override fun onDestroy() {
+        if (closed.compareAndSet(false, true)) {
+            val waitingForPermission = pendingName != null
+            val result = pendingResult
+            val gate = pendingReply
+            pendingName = null
+            pendingText = null
+            pendingResult = null
+            pendingReply = null
+            if (waitingForPermission && result != null && gate != null) {
+                reply(result, gate, "save failed")
+            }
+            io.shutdown()
+        }
+        super.onDestroy()
     }
 }

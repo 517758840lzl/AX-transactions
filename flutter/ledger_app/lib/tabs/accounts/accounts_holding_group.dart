@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/ledger_strings.dart';
 import '../../theme/ledger_text_styles.dart';
 import '../../widgets/ledger_account_row_card.dart';
 import '../../widgets/money_amount.dart';
@@ -60,7 +61,11 @@ class _HoldingRow extends StatelessWidget {
     final color = Color(0xFF000000 | int.parse(hex.substring(1), radix: 16));
     final value = AccountsBookMath.holdingMarketValue(holding);
     final pnl = AccountsBookMath.holdingUnrealizedPnl(holding);
-    final qtyLabel = holding.kind == HoldingKind.fund ? '${holding.qty.toStringAsFixed(2)} 份' : '${holding.qty.toStringAsFixed(0)} 股';
+    final fund = holding.kind == HoldingKind.fund;
+    final qtyLabel = LedgerStrings.qtyWithUnit(
+      fund ? holding.qty.toStringAsFixed(2) : holding.qty.toStringAsFixed(0),
+      fund ? LedgerStrings.fundShare : LedgerStrings.stockShare,
+    );
 
     return LedgerAccountRowCard(
       onTap: onTap,

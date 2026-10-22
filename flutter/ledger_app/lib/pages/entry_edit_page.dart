@@ -14,12 +14,15 @@ import '../widgets/ledger_pill_button.dart';
 import '../widgets/ledger_popup.dart';
 import '../widgets/ledger_subpage_head.dart';
 
-enum EntryEditAction { saved, deleted }
+abstract final class EntryEditAction {
+  static const saved = 'saved';
+  static const deleted = 'deleted';
+}
 
 class EntryEditResult {
   const EntryEditResult({required this.action, this.entry});
 
-  final EntryEditAction action;
+  final String action;
   final DashboardEntry? entry;
 }
 

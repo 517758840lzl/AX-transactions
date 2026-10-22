@@ -153,7 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Row(
           children: [
-            Expanded(child: Text('${DateTime.now().month}月${LedgerStrings.tabDashboard}', style: Theme.of(context).textTheme.headlineLarge)),
+            Expanded(child: Text(LedgerStrings.monthWithTitle(DateTime.now().month, LedgerStrings.tabDashboard), style: Theme.of(context).textTheme.headlineLarge)),
             LedgerChipButton(label: _state.scopeChipLabel, onPressed: _openFilter),
           ],
         ),

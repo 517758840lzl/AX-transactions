@@ -1,4 +1,17 @@
-enum MeGender { female, male, secret }
+abstract final class MeGender {
+  static const female = 'female';
+  static const male = 'male';
+  static const secret = 'secret';
+  static const values = <String>[female, male, secret];
+
+  static String read(Object? raw) {
+    final name = '$raw';
+    for (final gender in values) {
+      if (gender == name) return gender;
+    }
+    return secret;
+  }
+}
 
 class MeTemplate {
   const MeTemplate({

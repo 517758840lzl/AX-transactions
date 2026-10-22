@@ -17,8 +17,8 @@ class LedgerFilterResult {
     required this.rangeTo,
   });
 
-  final LedgerScope scope;
-  final LedgerPeriodMode periodMode;
+  final String scope;
+  final String periodMode;
   final String rangeFrom;
   final String rangeTo;
 }
@@ -33,15 +33,15 @@ class FilterPage extends StatefulWidget {
     required this.rangeTo,
   });
 
-  final LedgerScope scope;
-  final LedgerPeriodMode periodMode;
+  final String scope;
+  final String periodMode;
   final String rangeFrom;
   final String rangeTo;
 
   static Future<LedgerFilterResult?> open(
     BuildContext context, {
-    required LedgerScope scope,
-    required LedgerPeriodMode periodMode,
+    required String scope,
+    required String periodMode,
     required String rangeFrom,
     required String rangeTo,
   }) {
@@ -62,8 +62,8 @@ class FilterPage extends StatefulWidget {
 }
 
 class _FilterPageState extends State<FilterPage> {
-  late LedgerScope _scope;
-  late LedgerPeriodMode _period;
+  late String _scope;
+  late String _period;
   late String _rangeFrom;
   late String _rangeTo;
 

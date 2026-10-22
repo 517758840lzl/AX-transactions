@@ -54,6 +54,10 @@ class _PrivacyPageState extends State<PrivacyPage> {
                   padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
                   child: LedgerSubpageHead(title: LedgerStrings.privacyTitle, onBack: () => Navigator.pop(context)),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+                  child: Text(LedgerStrings.storagePermission, style: LedgerTextStyles.body),
+                ),
                 Expanded(
                   child: _failed
                       ? Center(

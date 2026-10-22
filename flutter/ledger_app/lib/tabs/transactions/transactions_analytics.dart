@@ -1,16 +1,17 @@
 import '../../data/ledger_view_filter.dart';
+import '../../l10n/ledger_strings.dart';
 import '../dashboard/dashboard_models.dart';
 import 'transactions_tab_state.dart';
 
 abstract final class TransactionsAnalytics {
   static List<DashboardEntry> filterEntries({
     required List<DashboardEntry> entries,
-    required LedgerScope scope,
-    required LedgerPeriodMode periodMode,
+    required String scope,
+    required String periodMode,
     required String rangeFrom,
     required String rangeTo,
     required String search,
-    required TransactionsStatusFilter statusFilter,
+    required String statusFilter,
     required String? categoryFilter,
     required String? calendarDay,
     required int txViewIndex,
@@ -74,10 +75,10 @@ abstract final class TransactionsAnalytics {
     final now = DateTime.now();
     final today = _iso(now);
     final yesterday = _iso(now.subtract(const Duration(days: 1)));
-    if (iso == today) return '今天';
-    if (iso == yesterday) return '昨天';
+    if (iso == today) return LedgerStrings.todayWord;
+    if (iso == yesterday) return LedgerStrings.yesterdayWord;
     final parts = iso.split('-');
-    return '${int.parse(parts[1])}月${int.parse(parts[2])}日';
+    return LedgerStrings.monthDay(int.parse(parts[1]), int.parse(parts[2]));
   }
 
   static String _iso(DateTime d) =>

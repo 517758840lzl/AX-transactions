@@ -164,4 +164,60 @@ abstract final class LedgerStrings {
   static const newCategory = '新分类';
   static const add = '添加';
   static const deleteEntry = '删除';
+  static const todayWord = '今天';
+  static const yesterdayWord = '昨天';
+  static const fundShare = '份';
+  static const stockShare = '股';
+  static const localeZh = '中文';
+  static const localeEn = 'English';
+  static const unsetName = '未设置';
+  static const unsetMark = '未';
+  static const calendarWeek = ['日', '一', '二', '三', '四', '五', '六'];
+  static const appVersionName = '1.0.0+1';
+
+  static String yearMonth(int year, int month) => '$year年$month月';
+
+  static String monthUnit(int month) => '$month月';
+
+  static String monthDay(int month, int day) => '$month月$day日';
+
+  static String monthWithTitle(int month, String title) => '$month月$title';
+
+  static String qtyWithUnit(String amount, String unit) => '$amount $unit';
+
+  static String categoryAdded(String name) => '已添加分类：$name';
+
+  static int get _copySlot {
+    var sum = 0;
+    for (final unit in appVersionName.codeUnits) {
+      sum += unit;
+    }
+    return sum % 3;
+  }
+
+  static String _pick(List<String> lines) => lines[_copySlot];
+
+  static String get privacyLead => _pick(const [
+        privacy1,
+        '昵称、性别、账户和每一笔账都只留在这台设备上。',
+        '昵称、性别、账户以及每一笔账都写在本机。',
+      ]);
+
+  static String get privacyKeep => _pick(const [
+        privacy2,
+        '不会连上银行或其他服务，清掉本机数据后账本就没有了。',
+        '账本不经过银行或别的服务，清掉本机数据后这些记录也会没有。',
+      ]);
+
+  static String get privacyFamily => _pick(const [
+        privacy3,
+        '切到「家庭」时，只看记入家庭的账。',
+        '家庭范围里单独显示记入家庭的账。',
+      ]);
+
+  static String get storagePermission => _pick(const [
+        '导出账本时，需要把文件写到本机的下载目录。',
+        '保存账本备份时，会把 JSON 文件放到下载文件夹。',
+        '把账本导出成文件时，文件放在本机下载目录里。',
+      ]);
 }

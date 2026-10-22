@@ -1,9 +1,16 @@
 import '../l10n/ledger_strings.dart';
 import '../tabs/dashboard/dashboard_models.dart';
 
-enum LedgerScope { mine, family }
+abstract final class LedgerScope {
+  static const mine = 'mine';
+  static const family = 'family';
+}
 
-enum LedgerPeriodMode { today, month, range }
+abstract final class LedgerPeriodMode {
+  static const today = 'today';
+  static const month = 'month';
+  static const range = 'range';
+}
 
 class LedgerPeriodBounds {
   const LedgerPeriodBounds({required this.start, required this.end});
@@ -23,7 +30,7 @@ abstract final class LedgerViewFilter {
     return '${n.year.toString().padLeft(4, '0')}-${n.month.toString().padLeft(2, '0')}-01';
   }
 
-  static LedgerPeriodBounds periodBounds(LedgerPeriodMode mode, String rangeFrom, String rangeTo, [DateTime? now]) {
+  static LedgerPeriodBounds periodBounds(String mode, String rangeFrom, String rangeTo, [DateTime? now]) {
     final today = todayIso(now);
     if (mode == LedgerPeriodMode.today) return LedgerPeriodBounds(start: today, end: today);
     if (mode == LedgerPeriodMode.month) {
@@ -35,7 +42,7 @@ abstract final class LedgerViewFilter {
     return LedgerPeriodBounds(start: start, end: end.compareTo(today) > 0 ? today : end);
   }
 
-  static List<DashboardEntry> byScope(Iterable<DashboardEntry> entries, LedgerScope scope) {
+  static List<DashboardEntry> byScope(Iterable<DashboardEntry> entries, String scope) {
     return entries.where((e) => scope == LedgerScope.family ? e.shared : !e.shared).toList();
   }
 
@@ -47,9 +54,9 @@ abstract final class LedgerViewFilter {
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   /// Web `periodChipLabel` — 流水顶栏 chip
-  static String periodChipLabel(LedgerPeriodMode mode, String rangeFrom, String rangeTo) {
+  static String periodChipLabel(String mode, String rangeFrom, String rangeTo) {
     if (mode == LedgerPeriodMode.today) return LedgerStrings.today;
-    if (mode == LedgerPeriodMode.month) return '${DateTime.now().month}月';
+    if (mode == LedgerPeriodMode.month) return LedgerStrings.monthUnit(DateTime.now().month);
     final start = rangeFrom.compareTo(rangeTo) <= 0 ? rangeFrom : rangeTo;
     final end = rangeFrom.compareTo(rangeTo) <= 0 ? rangeTo : rangeFrom;
     if (start == end) return _dayChipLabel(start);
@@ -62,9 +69,9 @@ abstract final class LedgerViewFilter {
     final now = DateTime.now();
     final today = todayIso(now);
     final yesterday = todayIso(now.subtract(const Duration(days: 1)));
-    if (iso == today) return '今天';
-    if (iso == yesterday) return '昨天';
+    if (iso == today) return LedgerStrings.todayWord;
+    if (iso == yesterday) return LedgerStrings.yesterdayWord;
     final parts = iso.split('-');
-    return '${int.parse(parts[1])}月${int.parse(parts[2])}日';
+    return LedgerStrings.monthDay(int.parse(parts[1]), int.parse(parts[2]));
   }
 }

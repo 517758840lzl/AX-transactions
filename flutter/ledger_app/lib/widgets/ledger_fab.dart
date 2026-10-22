@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/ledger_strings.dart';
 import '../theme/ledger_colors.dart';
 
 class LedgerFab extends StatelessWidget {
@@ -17,7 +18,7 @@ class LedgerFab extends StatelessWidget {
         elevation: 0,
         shadowColor: LedgerColors.pink.withValues(alpha: 0.65),
         child: Tooltip(
-          message: '记一笔',
+          message: LedgerStrings.entryNew,
           child: InkWell(
             onTap: onPressed,
             customBorder: const CircleBorder(),

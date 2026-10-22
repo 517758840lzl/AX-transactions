@@ -23,8 +23,8 @@ class DashboardTabState {
   final Map<String, double> categoryBudgets;
   final bool sampleCleared;
   final double netWorth;
-  final LedgerScope scope;
-  final LedgerPeriodMode periodMode;
+  final String scope;
+  final String periodMode;
   final String rangeFrom;
   final String rangeTo;
 
@@ -81,8 +81,8 @@ class DashboardTabState {
     Map<String, double>? categoryBudgets,
     bool? sampleCleared,
     double? netWorth,
-    LedgerScope? scope,
-    LedgerPeriodMode? periodMode,
+    String? scope,
+    String? periodMode,
     String? rangeFrom,
     String? rangeTo,
   }) {

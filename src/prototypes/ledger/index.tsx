@@ -1528,7 +1528,6 @@ export default function LedgerApp() {
                                 <h1>{L.accounts}</h1>
                                 <span className="ledger-topbar-meta">{book.accounts.length}{L.accountCount ? ` ${L.accountCount}` : ''}</span>
                             </div>
-                            <SampleNote L={L} book={book} onClear={clearSample} />
                             {book.accounts.length === 0 && holdings.length === 0 ? (
                                 <p className="ledger-empty">{L.accountsEmpty}</p>
                             ) : (
@@ -1620,6 +1619,7 @@ export default function LedgerApp() {
                             )}
                             <button type="button" className="ledger-pill" onClick={() => openAccount()}>{L.addAccount}</button>
                             <button type="button" className="ledger-pill ledger-pill-secondary" onClick={() => openHolding()}>{L.addHolding}</button>
+                            <SampleNote L={L} book={book} onClear={clearSample} />
                         </>
                     )}
 

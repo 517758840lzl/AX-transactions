@@ -23,7 +23,7 @@ class TransactionsCalendarPanel extends StatelessWidget {
     final first = DateTime(year, month, 1);
     final last = DateTime(year, month + 1, 0);
     final startPad = first.weekday % 7;
-    final monthLabel = '$year年$month月';
+    final monthLabel = LedgerStrings.yearMonth(year, month);
     final maxSpend = spendByDay.values.fold(0.0, (a, b) => a > b ? a : b);
     final maxHeat = maxSpend > 0 ? maxSpend : 1;
 

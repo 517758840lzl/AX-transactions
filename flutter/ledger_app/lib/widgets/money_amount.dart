@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../theme/ledger_colors.dart';
 
-enum MoneySize { hero, md, sm, pieCenter }
+abstract final class MoneySize {
+  static const hero = 'hero';
+  static const md = 'md';
+  static const sm = 'sm';
+  static const pieCenter = 'pieCenter';
+}
 
 class MoneyAmount extends StatelessWidget {
   const MoneyAmount({
@@ -16,7 +21,7 @@ class MoneyAmount extends StatelessWidget {
 
   final double value;
   final String mark;
-  final MoneySize size;
+  final String size;
   final bool signed;
   final bool lightOnDark;
 
@@ -25,33 +30,37 @@ class MoneyAmount extends StatelessWidget {
     final negative = value < 0;
     final body = _formatBody(value.abs());
     final color = lightOnDark ? LedgerColors.white : LedgerColors.ink;
-    final style = switch (size) {
-      MoneySize.hero => TextStyle(
+    final TextStyle style;
+    if (size == MoneySize.hero) {
+      style = TextStyle(
         fontSize: 36,
         fontWeight: FontWeight.w700,
         height: 1.08,
         color: color,
         fontFeatures: const [FontFeature.tabularFigures()],
-      ),
-      MoneySize.md => TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: color,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      ),
-      MoneySize.sm => TextStyle(
+      );
+    } else if (size == MoneySize.sm) {
+      style = TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
         color: color,
         fontFeatures: const [FontFeature.tabularFigures()],
-      ),
-      MoneySize.pieCenter => TextStyle(
+      );
+    } else if (size == MoneySize.pieCenter) {
+      style = TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w700,
         color: color,
         fontFeatures: const [FontFeature.tabularFigures()],
-      ),
-    };
+      );
+    } else {
+      style = TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: color,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+    }
     final sign = signed && value > 0 ? '+' : (negative ? '−' : '');
     return Text.rich(
       TextSpan(

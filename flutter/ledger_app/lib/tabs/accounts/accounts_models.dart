@@ -1,6 +1,33 @@
-enum AccountKind { bank, cash, card, other }
+abstract final class AccountKind {
+  static const bank = 'bank';
+  static const cash = 'cash';
+  static const card = 'card';
+  static const other = 'other';
+  static const values = <String>[bank, cash, card, other];
 
-enum HoldingKind { stock, etf, fund }
+  static String read(Object? raw) {
+    final name = '$raw';
+    for (final kind in values) {
+      if (kind == name) return kind;
+    }
+    return cash;
+  }
+}
+
+abstract final class HoldingKind {
+  static const stock = 'stock';
+  static const etf = 'etf';
+  static const fund = 'fund';
+  static const values = <String>[stock, etf, fund];
+
+  static String read(Object? raw) {
+    final name = '$raw';
+    for (final kind in values) {
+      if (kind == name) return kind;
+    }
+    return stock;
+  }
+}
 
 class LedgerAccount {
   const LedgerAccount({required this.id, required this.name, required this.opening, required this.kind});
@@ -8,7 +35,7 @@ class LedgerAccount {
   final String id;
   final String name;
   final double opening;
-  final AccountKind kind;
+  final String kind;
 }
 
 class LedgerHolding {
@@ -24,7 +51,7 @@ class LedgerHolding {
   });
 
   final String id;
-  final HoldingKind kind;
+  final String kind;
   final String code;
   final String name;
   final double qty;

@@ -11,16 +11,16 @@ class ProfileSaveResult {
   const ProfileSaveResult({required this.nickname, required this.gender});
 
   final String nickname;
-  final MeGender gender;
+  final String gender;
 }
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, required this.nickname, required this.gender});
 
   final String nickname;
-  final MeGender gender;
+  final String gender;
 
-  static Future<ProfileSaveResult?> open(BuildContext context, {required String nickname, required MeGender gender}) {
+  static Future<ProfileSaveResult?> open(BuildContext context, {required String nickname, required String gender}) {
     return Navigator.of(context).push<ProfileSaveResult>(
       MaterialPageRoute(builder: (_) => ProfilePage(nickname: nickname, gender: gender)),
     );
@@ -32,7 +32,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late final TextEditingController _nickname;
-  late MeGender _gender;
+  late String _gender;
 
   @override
   void initState() {
@@ -92,7 +92,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 8),
                 LedgerChoiceRow(
                   labels: const [LedgerStrings.genderFemale, LedgerStrings.genderMale, LedgerStrings.genderSecret],
-                  index: _gender.index,
+                  index: MeGender.values.indexOf(_gender),
                   onChanged: (i) => setState(() => _gender = MeGender.values[i]),
                 ),
                 const SizedBox(height: 20),

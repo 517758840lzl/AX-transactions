@@ -4,7 +4,6 @@ import '../../theme/ledger_colors.dart';
 import '../../theme/ledger_text_styles.dart';
 import '../../widgets/ledger_card.dart';
 import 'me_gender_icon.dart';
-import 'me_models.dart';
 
 class MeProfileCard extends StatelessWidget {
   const MeProfileCard({
@@ -21,7 +20,7 @@ class MeProfileCard extends StatelessWidget {
   final String avatarInitial;
   final String streakMeta;
   final bool hasNickname;
-  final MeGender gender;
+  final String gender;
   final VoidCallback onTap;
 
   @override

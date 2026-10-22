@@ -66,7 +66,11 @@ class _HoldingDetailPageState extends State<HoldingDetailPage> {
     final value = AccountsBookMath.holdingMarketValue(_holding);
     final pnl = AccountsBookMath.holdingUnrealizedPnl(_holding);
     final unitCost = _holding.qty <= 0 ? 0.0 : ((_holding.costTotal / _holding.qty) * 100).roundToDouble() / 100;
-    final qtyLabel = _holding.kind == HoldingKind.fund ? '${_holding.qty.toStringAsFixed(2)} 份' : '${_trim(_holding.qty)} 股';
+    final fund = _holding.kind == HoldingKind.fund;
+    final qtyLabel = LedgerStrings.qtyWithUnit(
+      fund ? _holding.qty.toStringAsFixed(2) : _trim(_holding.qty),
+      fund ? LedgerStrings.fundShare : LedgerStrings.stockShare,
+    );
 
     return Scaffold(
       backgroundColor: LedgerColors.white,

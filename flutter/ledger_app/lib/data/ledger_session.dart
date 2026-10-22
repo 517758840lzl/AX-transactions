@@ -279,14 +279,14 @@ class LedgerSession {
             'id': item.id,
             'name': item.name,
             'opening': item.opening,
-            'kind': item.kind.name,
+            'kind': item.kind,
           },
       ],
       'holdings': [
         for (final item in accounts.holdings)
           {
             'id': item.id,
-            'kind': item.kind.name,
+            'kind': item.kind,
             'code': item.code,
             'name': item.name,
             'qty': item.qty,
@@ -347,10 +347,7 @@ List<LedgerAccount> _accounts(Object? raw, {required bool sampleCleared}) {
           id: '${item['id'] ?? ''}',
           name: '${item['name'] ?? ''}',
           opening: _money(item['opening']) ?? 0,
-          kind: AccountKind.values.firstWhere(
-            (kind) => kind.name == item['kind'],
-            orElse: () => AccountKind.cash,
-          ),
+          kind: AccountKind.read(item['kind']),
         ),
   ];
 }
@@ -387,10 +384,7 @@ LedgerHolding _holdingFromMap(Map item) {
   }
   return LedgerHolding(
     id: id,
-    kind: HoldingKind.values.firstWhere(
-      (kind) => kind.name == item['kind'],
-      orElse: () => HoldingKind.stock,
-    ),
+    kind: HoldingKind.read(item['kind']),
     code: code,
     name: name,
     qty: qty,

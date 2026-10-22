@@ -100,7 +100,7 @@ class _DatePopupState extends State<_DatePopup> {
     final first = DateTime(year, month, 1);
     final days = DateTime(year, month + 1, 0).day;
     final pad = first.weekday % 7;
-    const marks = ['日', '一', '二', '三', '四', '五', '六'];
+    const marks = LedgerStrings.calendarWeek;
 
     return Dialog(
       constraints: _popupConstraints,
@@ -114,7 +114,7 @@ class _DatePopupState extends State<_DatePopup> {
               children: [
                 _nav(() => setState(() => _cursor = DateTime(year, month - 1))),
                 Expanded(
-                  child: Text('$year年$month月', textAlign: TextAlign.center, style: LedgerTextStyles.cardTitle),
+                  child: Text(LedgerStrings.yearMonth(year, month), textAlign: TextAlign.center, style: LedgerTextStyles.cardTitle),
                 ),
                 _nav(() => setState(() => _cursor = DateTime(year, month + 1)), next: true),
               ],
