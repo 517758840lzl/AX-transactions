@@ -51,7 +51,7 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'export' | 'import' | 'filter' | 'budget' | 'transfer';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'export' | 'import' | 'filter' | 'budget' | 'transfer' | 'privacy';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30;
@@ -289,16 +289,6 @@ function detectRecurring(entries: Entry[]) {
         .filter((item) => item.dates.length >= 2)
         .sort((a, b) => b.dates.length - a.dates.length)
         .slice(0, 5);
-}
-
-function downloadBook(book: Book) {
-    const blob = new Blob([JSON.stringify(book, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ledger-${todayIso()}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
 }
 
 function calendarCells(year: number, month: number) {
@@ -1103,11 +1093,6 @@ export default function LedgerApp() {
         }, 2000);
     }
 
-    function handleExport() {
-        downloadBook(book);
-        flashExportNote(L.exportDone);
-    }
-
     function openAccountFeed(accountId: string) {
         setPanel('none');
         setViewingAccountId('');
@@ -1127,7 +1112,7 @@ export default function LedgerApp() {
         <main className="ledger">
             <section className="ledger-phone">
                 <div className="ledger-stage">
-                <div className={showFab ? 'ledger-body' : 'ledger-body is-rest'}>
+                <div className={`ledger-body${showFab ? '' : ' is-rest'}${panel === 'privacy' ? ' is-privacy' : ''}`}>
                     {panel === 'entry' && (
                         <EntryForm
                             L={L}
@@ -1277,11 +1262,6 @@ export default function LedgerApp() {
                         <>
                             <SubpageHead L={L} title={L.dataManage} onBack={() => setPanel('none')} />
                             <div className="ledger-export-card">
-                                <button type="button" className="ledger-row-link" onClick={handleExport}>
-                                    <span>{L.exportBackup}</span>
-                                    <span aria-hidden="true">↓</span>
-                                </button>
-                                <div className="ledger-settings-divider" role="presentation" />
                                 <button type="button" className="ledger-row-link ledger-clear-row" onClick={() => setClearAsk(true)}>
                                     <span>{L.clearBook}</span>
                                     <span aria-hidden="true">!</span>
@@ -1289,6 +1269,12 @@ export default function LedgerApp() {
                             </div>
                             {exportNote && <p className="ledger-toast" role="status">{exportNote}</p>}
                         </>
+                    )}
+                    {panel === 'privacy' && (
+                        <div className="ledger-privacy">
+                            <SubpageHead L={L} title={L.privacy} onBack={() => setPanel('none')} />
+                            <iframe className="ledger-privacy-frame" title={L.privacy} src="/prototypes/ledger/privacy.html" />
+                        </div>
                     )}
                     {panel === 'import' && (
                         <>
@@ -1648,7 +1634,7 @@ export default function LedgerApp() {
                                 </button>
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <button type="button" className="ledger-row-link" onClick={() => { setExportNote(''); setPanel('export'); }}>
-                                    <span>{L.exportData}</span>
+                                    <span>{L.dataManage}</span>
                                     <span className="ledger-chevron" aria-hidden="true">›</span>
                                 </button>
                                 <div className="ledger-settings-divider" role="presentation" />
@@ -1657,10 +1643,10 @@ export default function LedgerApp() {
                                     <span className="ledger-chevron" aria-hidden="true">›</span>
                                 </button>
                                 <div className="ledger-settings-divider" role="presentation" />
-                                <a className="ledger-row-link" href="https://www.baidu.com" target="_blank" rel="noreferrer">
+                                <button type="button" className="ledger-row-link" onClick={() => setPanel('privacy')}>
                                     <span>{L.privacy}</span>
                                     <span className="ledger-chevron" aria-hidden="true">›</span>
-                                </a>
+                                </button>
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <div className="ledger-settings-block">
                                     <p className="ledger-settings-label" id="ledger-locale-label">{L.language}</p>

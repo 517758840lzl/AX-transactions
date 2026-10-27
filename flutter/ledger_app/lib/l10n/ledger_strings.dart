@@ -1,4 +1,4 @@
-/// 与 `src/prototypes/ledger/i18n.ts`（zh）对齐
+/// Matches the Chinese copy in `src/prototypes/ledger/i18n.ts`.
 abstract final class LedgerStrings {
   static const tabDashboard = '总览';
   static const tabTransactions = '流水';

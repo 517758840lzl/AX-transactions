@@ -53,7 +53,7 @@ abstract final class LedgerViewFilter {
   static String _iso(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  /// Web `periodChipLabel` — 流水顶栏 chip
+  /// Web `periodChipLabel` — period chip in the transactions header.
   static String periodChipLabel(String mode, String rangeFrom, String rangeTo) {
     if (mode == LedgerPeriodMode.today) return LedgerStrings.today;
     if (mode == LedgerPeriodMode.month) return LedgerStrings.monthUnit(DateTime.now().month);

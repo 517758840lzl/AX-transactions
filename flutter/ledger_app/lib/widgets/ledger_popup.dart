@@ -16,7 +16,7 @@ class LedgerChoice {
 const _columnWidth = 390.0;
 const _sideGap = 24.0;
 
-/// 左右留出间距，宽度跟着屏幕走，并停在页面内容列里。
+/// Keeps side gaps, follows the screen width, and stays inside the page column.
 EdgeInsets ledgerPopupInset(BuildContext context) {
   final screen = MediaQuery.sizeOf(context).width;
   final extra = math.max(0.0, screen - _columnWidth) / 2;
@@ -25,7 +25,7 @@ EdgeInsets ledgerPopupInset(BuildContext context) {
 
 const _popupConstraints = BoxConstraints(minWidth: 0, maxWidth: double.infinity);
 
-/// 选项弹层。宽度是屏幕减去两边间距。
+/// Choice popup. Width is the screen minus the side gaps.
 Future<String?> showLedgerChoices(
   BuildContext context, {
   required String selected,
@@ -65,7 +65,7 @@ Future<String?> showLedgerChoices(
   );
 }
 
-/// 日历。不能选今天之后的日期。
+/// Calendar. Dates after today cannot be selected.
 Future<String?> showLedgerDate(BuildContext context, {required String value}) {
   return showDialog<String>(
     context: context,

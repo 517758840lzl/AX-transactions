@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../tabs/dashboard/dashboard_models.dart';
 import '../tabs/dashboard/dashboard_sample_data.dart';
 
-/// 总览、流水、账户共用的流水。记一笔写入后各页一起刷新。
+/// Entries shared by overview, transactions, and accounts. Saving one refreshes every page.
 class LedgerEntryLog extends ChangeNotifier {
   LedgerEntryLog({List<DashboardEntry>? entries}) : entries = entries ?? DashboardSampleData.seedEntries();
 

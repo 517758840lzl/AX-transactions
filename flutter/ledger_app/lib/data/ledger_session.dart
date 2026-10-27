@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../tabs/accounts/accounts_models.dart';
 import '../tabs/accounts/accounts_sample_data.dart';
@@ -10,11 +9,12 @@ import '../tabs/accounts/accounts_tab_state.dart';
 import '../tabs/dashboard/dashboard_models.dart';
 import '../tabs/dashboard/dashboard_sample_data.dart';
 import '../tabs/me/me_models.dart';
+import 'book_store.dart';
 import 'ledger_budget.dart';
 import 'ledger_catalog.dart';
 import 'ledger_entry_log.dart';
 
-/// 账户、流水、持仓、预算、分类、模板。写入本机后，重新打开不会回到示例账。
+/// Accounts, entries, holdings, budgets, categories, and templates. Once saved on device, reopening does not restore the sample book.
 class LedgerAccountBook extends ChangeNotifier {
   LedgerAccountBook({
     required List<LedgerAccount> accounts,
@@ -45,7 +45,7 @@ class LedgerAccountBook extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 去掉 id 以 sample- 开头的账户、持仓，并让流水日志丢掉对应示例。
+  /// Drops accounts and holdings whose ids start with sample-, and removes the matching sample entries.
   void clearFilled(LedgerEntryLog entries) {
     accounts = accounts
         .where((item) => !item.id.startsWith('sample-'))
@@ -67,7 +67,6 @@ class LedgerSession {
     required this.budget,
     required this.catalog,
     required this.accounts,
-    required this._preferences,
   }) {
     entries.addListener(_save);
     budget.addListener(_save);
@@ -75,43 +74,39 @@ class LedgerSession {
     accounts.addListener(_save);
   }
 
-  static const _key = 'ledger-book-v1';
-
   final LedgerEntryLog entries;
   final LedgerBudget budget;
   final LedgerCatalog catalog;
   final LedgerAccountBook accounts;
-  final SharedPreferences _preferences;
   Future<void> _writeTask = Future<void>.value();
 
   static Future<LedgerSession> open() async {
-    final preferences = await SharedPreferences.getInstance();
-    final raw = preferences.getString(_key);
+    final raw = await readBookDocument();
     if (raw == null || raw.isEmpty) {
-      final session = _seed(preferences);
+      final session = _seed();
       await session._write();
       return session;
     }
     try {
       final parsed = jsonDecode(raw);
       if (parsed is! Map<String, dynamic> && parsed is! Map) {
-        final session = _seed(preferences);
+        final session = _seed();
         await session._write();
         return session;
       }
-      final session = _fromMap(Map<String, dynamic>.from(parsed), preferences);
+      final session = _fromMap(Map<String, dynamic>.from(parsed));
       if (raw.contains('sample-holding-zttc')) {
         await session._write();
       }
       return session;
     } catch (_) {
-      final session = _seed(preferences);
+      final session = _seed();
       await session._write();
       return session;
     }
   }
 
-  static LedgerSession _seed(SharedPreferences preferences) {
+  static LedgerSession _seed() {
     return LedgerSession(
       entries: LedgerEntryLog(),
       budget: LedgerBudget(),
@@ -121,14 +116,10 @@ class LedgerSession {
         holdings: AccountsSampleData.sampleHoldings(),
         sampleCleared: false,
       ),
-      preferences: preferences,
     );
   }
 
-  static LedgerSession _fromMap(
-    Map<String, dynamic> map,
-    SharedPreferences preferences,
-  ) {
+  static LedgerSession _fromMap(Map<String, dynamic> map) {
     final sampleCleared = map['sampleCleared'] == true;
     return LedgerSession(
       entries: LedgerEntryLog(
@@ -147,13 +138,12 @@ class LedgerSession {
         holdings: _holdings(map['holdings'], sampleCleared: sampleCleared),
         sampleCleared: sampleCleared,
       ),
-      preferences: preferences,
     );
   }
 
   var _saveQueued = false;
 
-  /// 同一次操作里账户和流水会各通知一次。合并成一次写入，磁盘上仍是最新的账。
+  /// Accounts and entries each notify once in the same action. Writes are merged, and the file still holds the latest book.
   void _save() {
     if (_saveQueued) return;
     _saveQueued = true;
@@ -174,10 +164,10 @@ class LedgerSession {
   Future<void> _write() async {
     final snapshot = _snapshot();
     final encoded = await Isolate.run(() => jsonEncode(snapshot));
-    await _preferences.setString(_key, encoded);
+    await writeBookDocument(encoded);
   }
 
-  /// 清掉账户、流水、持仓、预算和模板。分类保留，并且不再填回示例账。
+  /// Clears accounts, entries, holdings, budgets, and templates. Categories stay, and the sample book is not filled back in.
   void clearBook() {
     entries.publish(<DashboardEntry>[]);
     budget.save(clear: true);
@@ -204,7 +194,7 @@ class LedgerSession {
     });
   }
 
-  /// 用导出的 JSON 覆盖当前账。昵称等资料由调用方另存。
+  /// Replaces the current book with imported JSON. Profile fields are stored by the caller.
   bool applyDocument(String raw) {
     try {
       final parsed = jsonDecode(raw);

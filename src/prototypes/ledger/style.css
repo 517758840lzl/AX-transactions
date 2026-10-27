@@ -56,6 +56,27 @@
   padding-bottom: 16px;
 }
 
+.ledger-body.is-privacy {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ledger-privacy {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.ledger-privacy-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #fff;
+}
+
 .ledger-body h1 {
   margin: 0;
   font-size: 26px;

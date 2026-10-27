@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 
-/// 对应 `.ledger-segment`（流水列表/日历、深色 hero 周期等）
+/// Matches `.ledger-segment` for the transactions list or calendar, and the dark hero period control.
 class LedgerSegment extends StatelessWidget {
   const LedgerSegment({super.key, required this.labels, required this.index, required this.onChanged, this.onDark = false});
 

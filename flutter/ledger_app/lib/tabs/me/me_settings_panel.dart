@@ -44,7 +44,7 @@ class MeSettingsPanel extends StatelessWidget {
                 : const Text(LedgerStrings.budgetUnset, style: LedgerTextStyles.settingsValue),
           ),
           const MeSettingsDivider(),
-          MeSettingsRow(title: LedgerStrings.exportData, onTap: onExport, trailing: const Text('›', style: LedgerTextStyles.chevron)),
+          MeSettingsRow(title: LedgerStrings.dataManage, onTap: onExport, trailing: const Text('›', style: LedgerTextStyles.chevron)),
           const MeSettingsDivider(),
           MeSettingsRow(title: LedgerStrings.importData, onTap: onImport, trailing: const Text('›', style: LedgerTextStyles.chevron)),
           const MeSettingsDivider(),

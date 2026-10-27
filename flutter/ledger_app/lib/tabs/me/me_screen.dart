@@ -117,19 +117,6 @@ class _MeScreenState extends State<MeScreen> {
     );
   }
 
-  String _exportDocument() {
-    final session = widget.session;
-    if (session != null) {
-      return session.exportDocument(
-        nickname: _state.nickname,
-        gender: _state.gender,
-        locale: _state.localeIndex == 0 ? 'zh' : 'en',
-        currency: MeTabState.currencies[_state.currencyIndex],
-      );
-    }
-    return MeBookIo.exportDocument(_state, widget.entries, widget.catalog, widget.budget);
-  }
-
   String? _applyImport(String raw) {
     final session = widget.session;
     if (session != null) {
@@ -168,7 +155,7 @@ class _MeScreenState extends State<MeScreen> {
     widget.catalog.replace(categories: widget.catalog.categories, templates: const []);
   }
 
-  Future<void> _openExport() => BookExportPage.open(context, currentDocument: _exportDocument, onClear: _clearBook);
+  Future<void> _openExport() => BookExportPage.open(context, onClear: _clearBook);
 
   Future<void> _openImport() => BookImportPage.open(context, onApply: _applyImport);
 

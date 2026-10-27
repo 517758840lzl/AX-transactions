@@ -32,7 +32,7 @@ abstract final class AccountsBookMath {
     return accountNowAndPrior(account, entries, iso).prior;
   }
 
-  /// 当前余额与截止某日的余额一次扫完，结果与分开两次过滤相同。
+  /// Current balance and the balance through a date are scanned once. The result matches two separate filters.
   static ({double now, double prior}) accountNowAndPrior(LedgerAccount account, List<DashboardEntry> entries, String priorIso) {
     var now = account.opening;
     var prior = account.opening;
@@ -74,7 +74,7 @@ abstract final class AccountsBookMath {
     return _iso(d);
   }
 
-  /// 一次扫过流水，按日累加。避免「每天 × 每笔」重复过滤。
+  /// Scans entries once and accumulates them by day, instead of filtering every entry for every day.
   static AccountsWindowSnapshot windowSnapshot(
     List<LedgerAccount> accounts,
     List<DashboardEntry> entries,

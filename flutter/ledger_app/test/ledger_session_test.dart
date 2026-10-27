@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ledger_app/data/book_store.dart';
 import 'package:ledger_app/data/ledger_session.dart';
 import 'package:ledger_app/tabs/accounts/accounts_models.dart';
 import 'package:ledger_app/tabs/accounts/accounts_tab_state.dart';
@@ -9,8 +10,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('cleared book stays cleared after reopen', () async {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    await discardBookDocument();
+  });
+
+  test('cleared book stays cleared after reopen', () async {
     final first = await LedgerSession.open();
     expect(first.accounts.sampleCleared, isFalse);
     expect(
@@ -71,7 +76,6 @@ void main() {
   });
 
   test('added holding survives reopen', () async {
-    SharedPreferences.setMockInitialValues({});
     final first = await LedgerSession.open();
     first.accounts.clearFilled(first.entries);
     first.accounts.take(

@@ -26,7 +26,7 @@ class EntryEditResult {
   final DashboardEntry? entry;
 }
 
-/// Web `panel === 'entry'`（示例账点开可改账户等）
+/// Web `panel === 'entry'`. Sample entries can be opened and their account can be changed.
 class EntryEditPage extends StatefulWidget {
   const EntryEditPage({
     super.key,

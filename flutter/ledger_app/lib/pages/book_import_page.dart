@@ -8,7 +8,7 @@ import '../widgets/ledger_subpage_head.dart';
 class BookImportPage extends StatefulWidget {
   const BookImportPage({super.key, required this.onApply});
 
-  /// 成功返回 null，失败返回页面上要显示的说明。
+  /// Returns null on success, or the message to show on the page when import fails.
   final String? Function(String raw) onApply;
 
   static Future<void> open(BuildContext context, {required String? Function(String raw) onApply}) {

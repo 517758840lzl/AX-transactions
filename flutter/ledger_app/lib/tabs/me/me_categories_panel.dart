@@ -6,7 +6,7 @@ import '../../widgets/ledger_card.dart';
 import '../../widgets/ledger_panel_link.dart';
 import '../../widgets/ledger_pill_button.dart';
 
-/// Web `.ledger-card` 分类区：7 项 starter + 编辑删 chip + 新分类 + 添加
+/// Web `.ledger-card` category block: seven starters, edit to remove a chip, a new-category field, and add.
 class MeCategoriesPanel extends StatefulWidget {
   const MeCategoriesPanel({
     super.key,

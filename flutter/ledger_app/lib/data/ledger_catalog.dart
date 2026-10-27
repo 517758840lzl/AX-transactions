@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../tabs/me/me_models.dart';
 
-/// 分类和快捷模板。跟示例流水分开存，清空示例账不会带走。
+/// Categories and quick templates. Stored apart from sample entries, so clearing the sample book leaves them.
 class LedgerCatalog extends ChangeNotifier {
   LedgerCatalog({List<String>? categories, List<MeTemplate>? templates})
       : categories = List<String>.from(categories ?? MeStarter.categories),
@@ -17,7 +17,7 @@ class LedgerCatalog extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 至少留一个分类。返回被删分类上的流水应改记到的分类。
+  /// Keeps at least one category. Returns the category that entries on the removed one should move to.
   String? removeCategory(String name) {
     if (categories.length <= 1 || !categories.contains(name)) return null;
     final fallback = categories.firstWhere((item) => item != name);

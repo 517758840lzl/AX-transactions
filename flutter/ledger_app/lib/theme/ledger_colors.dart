@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 与 `src/prototypes/ledger/style.css` 及 klarna-mobile DESIGN 对齐
+/// Matches `src/prototypes/ledger/style.css` and the klarna-mobile design.
 abstract final class LedgerColors {
   static const pink = Color(0xFFFFB3C7);
   static const pinkPressed = Color(0xFFF49CB4);
@@ -16,9 +16,9 @@ abstract final class LedgerColors {
   static const up = Color(0xFF2F9E62);
   static const down = Color(0xFFE85D75);
   static const chartLine = Color(0xFFE85D75);
-  /// rgba(255,255,255,0.62) — hero 标签、segment 未选中
+  /// rgba(255,255,255,0.62) — hero labels and an unselected segment.
   static const onDarkMuted = Color(0x9EFFFFFF);
-  /// rgba(255,255,255,0.88) — hero 脚注金额
+  /// rgba(255,255,255,0.88) — hero footnote amount.
   static const onDarkSoft = Color(0xE0FFFFFF);
   static const heroFoot = onDarkSoft;
   static const heroLabel = onDarkMuted;

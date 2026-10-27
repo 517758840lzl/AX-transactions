@@ -1,4 +1,4 @@
-/// 与 `store.ts` `categoryBudgetHintByName` / `defaultMonthlyBudgetHint` 一致
+/// Matches `categoryBudgetHintByName` and `defaultMonthlyBudgetHint` in `store.ts`.
 abstract final class BudgetHints {
   static const categoryByName = {
     '餐饮': 1800.0,

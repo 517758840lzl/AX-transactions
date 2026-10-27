@@ -13,7 +13,7 @@ class LedgerPillButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final bool secondary;
-  /// Web `.ledger-add-row .ledger-pill` — 非全宽
+  /// Web `.ledger-add-row .ledger-pill` — not full width.
   final bool compact;
 
   @override

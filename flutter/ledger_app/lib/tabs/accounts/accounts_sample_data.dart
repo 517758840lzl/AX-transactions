@@ -23,7 +23,7 @@ abstract final class AccountsSampleData {
     ),
   ];
 
-  /// 账户页示例持仓。市值 27,190，用来对齐总资产。
+  /// Sample holdings on the accounts page. Market value is 27,190 so it lines up with total assets.
   static List<LedgerHolding> sampleHoldings() {
     final today = DateTime.now();
     final iso =

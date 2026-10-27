@@ -6,7 +6,7 @@ import '../theme/ledger_text_styles.dart';
 import 'ledger_review_chip.dart';
 import 'money_amount.dart';
 
-/// Web `.ledger-tx` 行（总览待核对、流水列表共用）
+/// Web `.ledger-tx` row, shared by the overview review list and the transactions list.
 class LedgerTxRow extends StatelessWidget {
   const LedgerTxRow({
     super.key,

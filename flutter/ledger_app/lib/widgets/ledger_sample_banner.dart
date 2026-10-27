@@ -3,7 +3,7 @@ import '../l10n/ledger_strings.dart';
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 
-/// Web `.ledger-banner`。浏览器默认行高把整条撑到约 44，真机按这个高度。
+/// Web `.ledger-banner`. The browser line height makes the row about 44, and the device uses that height.
 class LedgerSampleBanner extends StatelessWidget {
   const LedgerSampleBanner({super.key, required this.onClear});
 

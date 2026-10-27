@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// 总览和「我的」共用的本月预算、分类预算。
+/// Monthly budget and category budgets shared by overview and Me.
 class LedgerBudget extends ChangeNotifier {
   LedgerBudget({this.monthly, Map<String, double>? categoryCaps}) : categoryCaps = categoryCaps ?? {};
 

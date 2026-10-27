@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/ledger_colors.dart';
 
-/// Web `SpendLine` 描边样式；支出曲线用 [fitDataRange:false]（0→max），净资产走势用 true（min→max）。
+/// Web `SpendLine` stroke. Spending uses [fitDataRange: false] (0 to max). Net worth uses true (min to max).
 class LedgerTrendLinePainter extends CustomPainter {
   LedgerTrendLinePainter({required this.amounts, this.fitDataRange = false});
 
@@ -68,7 +68,7 @@ class LedgerTrendLinePainter extends CustomPainter {
     }
   }
 
-  /// 圆心至少隔开约 12px。7 天、1 月仍逐日画点；3 月隔天取样。
+  /// Dot centers stay about 12px apart. 7-day and 1-month charts still draw every day; 3-month charts sample every other day.
   static List<int> _markerIndexes(int count, double step) {
     if (count <= 2) return [for (var i = 0; i < count; i++) i];
     final stride = step >= 12 || step <= 0 ? 1 : (12 / step).ceil();

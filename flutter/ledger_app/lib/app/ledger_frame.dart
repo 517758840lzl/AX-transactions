@@ -48,7 +48,7 @@ class _LedgerFrameState extends State<LedgerFrame> {
     if (index == _currencyIndex) return;
     setState(() {
       _currencyIndex = index;
-      // 金额符号变了：重建总览/流水/账户；「我的」保留本页状态
+      // Currency mark changed: rebuild overview, transactions, and accounts. Me keeps its page state.
       _pages[0] = null;
       _pages[1] = null;
       _pages[2] = null;

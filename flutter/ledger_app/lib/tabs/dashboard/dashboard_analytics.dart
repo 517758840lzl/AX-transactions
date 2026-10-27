@@ -3,7 +3,7 @@ import 'dashboard_models.dart';
 import 'dashboard_slice_colors.dart';
 
 abstract final class DashboardAnalytics {
-  /// Web `monthSpend` — 本月每日支出（范围过滤后的流水）
+  /// Web `monthSpend` — daily spending this month from the filtered entries.
   static List<double> monthSpendSeries(List<DashboardEntry> scopedEntries) {
     final start = LedgerViewFilter.monthStartIso();
     final end = LedgerViewFilter.todayIso();
@@ -66,7 +66,7 @@ abstract final class DashboardAnalytics {
     );
   }
 
-  /// 颜色仍按分类名排序后的位置取，和原先逐类重扫的结果一致。
+  /// Color still comes from the category name's sorted position, matching the old per-category scan.
   static List<DashboardCategoryPart> _categoryParts(
     Iterable<DashboardEntry> outs,
     Map<String, double> caps,

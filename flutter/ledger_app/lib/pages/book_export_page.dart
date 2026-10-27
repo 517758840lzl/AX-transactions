@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/book_file.dart';
 import '../l10n/ledger_strings.dart';
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
@@ -10,22 +9,18 @@ import '../widgets/ledger_subpage_head.dart';
 class BookExportPage extends StatefulWidget {
   const BookExportPage({
     super.key,
-    required this.currentDocument,
     required this.onClear,
   });
 
-  final String Function() currentDocument;
   final VoidCallback onClear;
 
   static Future<void> open(
     BuildContext context, {
-    required String Function() currentDocument,
     required VoidCallback onClear,
   }) {
     return Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            BookExportPage(currentDocument: currentDocument, onClear: onClear),
+        builder: (_) => BookExportPage(onClear: onClear),
       ),
     );
   }
@@ -43,18 +38,6 @@ class _BookExportPageState extends State<BookExportPage> {
 
   void _toast(String message) {
     showCenterNote(context, message);
-  }
-
-  Future<void> _download() async {
-    try {
-      await saveBookJsonFile(widget.currentDocument());
-      if (!mounted) return;
-      _toast(LedgerStrings.exportSaved);
-    } catch (error) {
-      debugPrint('book download failed: $error');
-      if (!mounted) return;
-      _toast(LedgerStrings.exportFailed);
-    }
   }
 
   Future<void> _clear() async {
@@ -108,35 +91,6 @@ class _BookExportPageState extends State<BookExportPage> {
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      InkWell(
-                        onTap: _download,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 16,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  LedgerStrings.exportBackup,
-                                  style: LedgerTextStyles.settingsRowTitle,
-                                ),
-                              ),
-                              const Icon(
-                                Icons.file_download_outlined,
-                                color: LedgerColors.ink,
-                                size: 22,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: LedgerColors.line,
-                      ),
                       InkWell(
                         onTap: _clear,
                         child: Padding(

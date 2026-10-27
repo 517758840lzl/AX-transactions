@@ -5,7 +5,7 @@ import '../../theme/ledger_text_styles.dart';
 import '../../widgets/money_amount.dart';
 import 'transactions_tab_state.dart';
 
-/// Web `.ledger-rank` — 第 1 行：左圆点+名称与右金额/升降 **垂直居中**；第 2 行：比例条通栏
+/// Web `.ledger-rank`. Row 1 vertically centers the dot and name with the amount and change. Row 2 is a full-width bar.
 class TransactionsCategoryRankList extends StatelessWidget {
   const TransactionsCategoryRankList({
     super.key,

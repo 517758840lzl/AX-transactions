@@ -64,7 +64,7 @@ class AccountsTrendHero extends StatelessWidget {
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
-              // 与 Web `viewBox="0 0 320 120"` 同宽高比，随卡片宽度缩放
+              // Same aspect ratio as the web `viewBox="0 0 320 120"`, scaled to the card width.
               final h = (constraints.maxWidth * 120 / 320).clamp(64.0, 120.0);
               return RepaintBoundary(
                 child: SizedBox(

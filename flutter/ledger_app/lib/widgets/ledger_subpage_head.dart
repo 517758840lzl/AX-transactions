@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 
-/// Web `.ledger-subhead`。标题行高锁死，避免真机苹方把字和下面的内容撑开。
+/// Web `.ledger-subhead`. Title line height is fixed so the device font does not push the content below.
 class LedgerSubpageHead extends StatelessWidget {
   const LedgerSubpageHead({super.key, required this.title, required this.onBack});
 
@@ -14,7 +14,7 @@ class LedgerSubpageHead extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 22,
+          width: 16,
           height: 44,
           child: OverflowBox(
             minWidth: 44,
@@ -35,18 +35,18 @@ class LedgerSubpageHead extends StatelessWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               icon: const CustomPaint(
-                size: Size(22, 22),
+                size: Size(16, 16),
                 painter: _BackArrowPainter(),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             title,
-            style: LedgerTextStyles.pageTitle,
-            strutStyle: const StrutStyle(fontSize: 26, height: 1.15, forceStrutHeight: true),
+            style: LedgerTextStyles.pageTitle.copyWith(fontSize: 18),
+            strutStyle: const StrutStyle(fontSize: 18, height: 1.15, forceStrutHeight: true),
           ),
         ),
       ],
@@ -54,7 +54,7 @@ class LedgerSubpageHead extends StatelessWidget {
   }
 }
 
-/// 箭头尖端贴在按钮左缘，和下面的内容左对齐。
+/// The arrow tip sits on the button's left edge, aligned with the content below.
 class _BackArrowPainter extends CustomPainter {
   const _BackArrowPainter();
 
@@ -74,7 +74,7 @@ class _BackArrowPainter extends CustomPainter {
       Paint()
         ..color = LedgerColors.ink
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.9 / scale
+        ..strokeWidth = 1.6 / scale
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );

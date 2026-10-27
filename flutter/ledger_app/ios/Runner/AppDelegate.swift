@@ -1,9 +1,15 @@
+import CoreTelephony
 import Flutter
 import UIKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UIDocumentPickerDelegate {
   private var downloadResult: FlutterResult?
+  private var pathAccessChannel: FlutterMethodChannel?
+  private var pathAccessData: CTCellularData?
+  private var pathAccessWatching = false
+  private var pathAccessSawFirst = false
+  private var pathAccessOpen = false
 
   override func application(
     _ application: UIApplication,
@@ -29,6 +35,51 @@ import UIKit
       }
       self?.exportFile(name: name, text: text, result: result)
     }
+    let pathChannel = FlutterMethodChannel(
+      name: "ledger/path_access",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    pathAccessChannel = pathChannel
+    pathChannel.setMethodCallHandler { [weak self] call, result in
+      switch call.method {
+      case "watch":
+        self?.startPathAccess()
+        result(nil)
+      case "stop":
+        self?.stopPathAccess()
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// First network use can show the system data prompt. The page load that
+  /// triggered it fails, so reload only after a later grant.
+  private func startPathAccess() {
+    pathAccessWatching = true
+    pathAccessSawFirst = false
+    pathAccessOpen = false
+    let data = CTCellularData()
+    pathAccessData = data
+    data.cellularDataRestrictionDidUpdateNotifier = { [weak self] state in
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self, self.pathAccessWatching else { return }
+        let open = state == .notRestricted
+        let first = !self.pathAccessSawFirst
+        self.pathAccessSawFirst = true
+        let becameOpen = open && !self.pathAccessOpen
+        self.pathAccessOpen = open
+        guard !first, becameOpen else { return }
+        self.pathAccessChannel?.invokeMethod("granted", arguments: nil)
+      }
+    }
+  }
+
+  private func stopPathAccess() {
+    pathAccessWatching = false
+    pathAccessData?.cellularDataRestrictionDidUpdateNotifier = nil
+    pathAccessData = nil
   }
 
   private func exportFile(name: String, text: String, result: @escaping FlutterResult) {

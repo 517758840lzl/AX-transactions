@@ -1,13 +1,13 @@
 import 'package:flutter/rendering.dart';
 
-/// 四 Tab 主屏共用 ListView 边距（与 Web `.ledger-phone` 内边距一致）。
+/// Shared ListView padding for the four main tabs, matching the web `.ledger-phone` inset.
 abstract final class TabPage {
-  /// 底栏在列表外面。有悬浮「+」的页要留出按钮高度。
+  /// The tab bar sits outside the list. Pages with a floating add button leave room for it.
   static const listPadding = EdgeInsets.fromLTRB(18, 12, 18, 88);
 
-  /// 没有悬浮按钮的页，最后一项只要离开底栏一小段。
+  /// Pages without a floating button only need a short gap above the tab bar.
   static const listPaddingRest = EdgeInsets.fromLTRB(18, 12, 18, 16);
 
-  /// 主列表预建下一屏，滑动时少做临时布局。
+  /// The main list builds the next screen ahead of time so scrolling does less layout work.
   static const scrollCache = ScrollCacheExtent.pixels(480);
 }

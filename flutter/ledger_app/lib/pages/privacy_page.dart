@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../l10n/ledger_strings.dart';
 import '../theme/ledger_colors.dart';
@@ -8,7 +12,7 @@ import '../widgets/ledger_subpage_head.dart';
 class PrivacyPage extends StatefulWidget {
   const PrivacyPage({super.key});
 
-  static const pageUrl = 'https://www.baidu.com';
+  static const policyAsset = 'assets/privacy.html';
 
   static Future<void> open(BuildContext context) {
     return Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacyPage()));
@@ -19,14 +23,18 @@ class PrivacyPage extends StatefulWidget {
 }
 
 class _PrivacyPageState extends State<PrivacyPage> {
+  static const _pathAccess = MethodChannel('ledger/path_access');
+
   late final WebViewController _controller;
   var _failed = false;
+
+  bool get _watchPathAccess => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   @override
   void initState() {
     super.initState();
     _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setJavaScriptMode(JavaScriptMode.disabled)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
@@ -36,8 +44,33 @@ class _PrivacyPageState extends State<PrivacyPage> {
             if (error.isForMainFrame == true && mounted) setState(() => _failed = true);
           },
         ),
-      )
-      ..loadRequest(Uri.parse(PrivacyPage.pageUrl));
+      );
+    if (_watchPathAccess) {
+      _pathAccess.setMethodCallHandler(_onPathAccess);
+      unawaited(_pathAccess.invokeMethod<void>('watch'));
+    }
+    _loadPolicy();
+  }
+
+  @override
+  void dispose() {
+    if (_watchPathAccess) {
+      _pathAccess.setMethodCallHandler(null);
+      unawaited(_pathAccess.invokeMethod<void>('stop'));
+    }
+    super.dispose();
+  }
+
+  Future<void> _onPathAccess(MethodCall call) async {
+    if (call.method != 'granted' || !mounted) return;
+    setState(() => _failed = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadPolicy();
+    });
+  }
+
+  void _loadPolicy() {
+    _controller.loadFlutterAsset(PrivacyPage.policyAsset);
   }
 
   @override
@@ -54,15 +87,11 @@ class _PrivacyPageState extends State<PrivacyPage> {
                   padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
                   child: LedgerSubpageHead(title: LedgerStrings.privacyTitle, onBack: () => Navigator.pop(context)),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
-                  child: Text(LedgerStrings.storagePermission, style: LedgerTextStyles.body),
-                ),
                 Expanded(
                   child: _failed
                       ? Center(
                           child: TextButton(
-                            onPressed: () => _controller.loadRequest(Uri.parse(PrivacyPage.pageUrl)),
+                            onPressed: _loadPolicy,
                             child: Text(LedgerStrings.privacyRetry, style: LedgerTextStyles.noteSemibold.copyWith(color: LedgerColors.ink)),
                           ),
                         )

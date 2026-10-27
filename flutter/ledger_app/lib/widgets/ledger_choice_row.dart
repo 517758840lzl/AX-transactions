@@ -14,7 +14,7 @@ class LedgerChoiceRow extends StatelessWidget {
   final List<String> labels;
   final int index;
   final ValueChanged<int> onChanged;
-  /// 有值时按网格换行（货币等多项）；否则单行均分。
+  /// Wraps as a grid when a column count is set (currency and other long lists); otherwise one even row.
   final int? columns;
 
   @override

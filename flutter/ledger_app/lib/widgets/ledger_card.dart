@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/ledger_colors.dart';
 import '../theme/ledger_text_styles.dart';
 
-/// Web `.ledger-card`（设置、模板、分类等）
+/// Web `.ledger-card` for settings, templates, categories, and similar blocks.
 class LedgerCard extends StatelessWidget {
   const LedgerCard({super.key, this.title, this.trailing, required this.child});
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/ledger_colors.dart';
 
-/// Web `.ledger-account-row` — 白底、描边、圆角与轻阴影
+/// Web `.ledger-account-row`: white fill, border, rounded corners, and a light shadow.
 class LedgerAccountRowCard extends StatelessWidget {
   const LedgerAccountRowCard({super.key, required this.onTap, required this.child});
 

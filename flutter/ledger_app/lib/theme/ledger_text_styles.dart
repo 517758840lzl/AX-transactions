@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'ledger_colors.dart';
 
-/// 与 `style.css` 文案层级一致，避免各页手写色值漂移。
+/// Matches the type scale in `style.css` so pages do not drift onto hand-written colors.
 abstract final class LedgerTextStyles {
   static const pageTitle = TextStyle(fontSize: 26, fontWeight: FontWeight.w700, height: 1.15, letterSpacing: -0.4, color: LedgerColors.ink);
 
@@ -85,7 +85,7 @@ abstract final class LedgerTextStyles {
 
   static const rankTrendDown = TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: LedgerColors.up);
 
-  /// 环形图中心总额（Web SVG 12px w700）
+  /// Total in the center of the ring chart (web SVG 12px, weight 700).
   static const pieCenterAmount = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w700,
