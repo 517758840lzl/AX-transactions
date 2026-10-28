@@ -753,7 +753,6 @@ export default function LedgerApp() {
     const [holdingPrice, setHoldingPrice] = useState('');
     const [holdingPriceDate, setHoldingPriceDate] = useState(todayIso);
     const [worthSpan, setWorthSpan] = useState<WorthSpan>('month');
-    const [locked, setLocked] = useState(() => loadBook().lockOnOpen === true);
     const [statementDay, setStatementDay] = useState('');
     const [dueDay, setDueDay] = useState('');
     const [accountArchived, setAccountArchived] = useState(false);
@@ -1505,12 +1504,6 @@ export default function LedgerApp() {
         <AmountsHidden.Provider value={book.hideAmounts === true}>
         <main className="ledger">
             <section className="ledger-phone">
-                {locked && book.lockOnOpen && (
-                    <div className="ledger-lock">
-                        <p>{L.lockTitle}</p>
-                        <button type="button" onClick={() => setLocked(false)}>{L.lockRetry}</button>
-                    </div>
-                )}
                 <div className="ledger-stage">
                 <div className={`ledger-body${showFab ? '' : ' is-rest'}${panel === 'privacy' ? ' is-privacy' : ''}`}>
                     {panel === 'entry' && (
@@ -2201,11 +2194,6 @@ export default function LedgerApp() {
                                 <button type="button" className="ledger-row-link" onClick={() => setBook({ ...book, hideAmounts: !book.hideAmounts })}>
                                     <span>{L.hideAmounts}</span>
                                     <span className="ledger-row-value">{book.hideAmounts ? L.hideAmountsOn : L.hideAmountsOff}</span>
-                                </button>
-                                <div className="ledger-settings-divider" role="presentation" />
-                                <button type="button" className="ledger-row-link" onClick={() => setBook({ ...book, lockOnOpen: book.lockOnOpen !== true })}>
-                                    <span>{L.lockOnOpen}</span>
-                                    <span className="ledger-row-value">{book.lockOnOpen ? L.lockOnWord : L.lockOffWord}</span>
                                 </button>
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.language} value={localeChoices.find((item) => item.id === locale)?.title ?? locale} onClick={() => setPanel('language')} />
