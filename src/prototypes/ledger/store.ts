@@ -14,6 +14,10 @@ export type Account = {
     name: string;
     opening: number;
     kind: AccountKind;
+    archived?: boolean;
+    /** 1–28。0 表示信用卡还没设出账日。 */
+    statementDay?: number;
+    dueDay?: number;
 };
 
 /** 股票 / ETF / 场外基金；不绑证券账户，手动维护 */
@@ -45,6 +49,16 @@ export type Entry = {
     checked: boolean;
     /** 缺省视为 none，旧账不改写其它字段 */
     claim?: ClaimMark;
+    /** 缺省计入预算。转账、退款、报销入账为 false。 */
+    countsInBudget?: boolean;
+    refundOf?: string;
+    goalId?: string;
+    splitGroup?: string;
+};
+
+export type RemovedEntry = {
+    entry: Entry;
+    removedOn: string;
 };
 
 export type SavingGoal = {
@@ -110,6 +124,8 @@ export type Book = {
     goals: SavingGoal[];
     sampleCleared?: boolean;
     hideAmounts?: boolean;
+    lockOnOpen?: boolean;
+    removed?: RemovedEntry[];
 };
 
 const storageKey = 'ledger-book-v1';
@@ -236,6 +252,8 @@ export function emptyBook(): Book {
         entries: [],
         goals: [],
         hideAmounts: false,
+        lockOnOpen: false,
+        removed: [],
     });
 }
 
@@ -259,9 +277,20 @@ export function loadBook(): Book {
                 name: account.name,
                 opening: account.opening,
                 kind: normalizeAccountKind(account.kind),
+                archived: account.archived === true,
+                statementDay: cycleDay(account.statementDay),
+                dueDay: cycleDay(account.dueDay),
             })),
-            entries: parsed.entries.map((entry) => ({ ...entry, claim: normalizeClaim(entry.claim) })),
+            entries: parsed.entries.map((entry) => ({
+                ...entry,
+                claim: normalizeClaim(entry.claim),
+                refundOf: typeof entry.refundOf === 'string' ? entry.refundOf : '',
+                goalId: typeof entry.goalId === 'string' ? entry.goalId : '',
+                splitGroup: typeof entry.splitGroup === 'string' ? entry.splitGroup : '',
+            })),
             goals: parseGoals(parsed.goals),
+            removed: purgeRemoved(parseRemoved(parsed.removed)),
+            lockOnOpen: parsed.lockOnOpen === true,
             sampleCleared: parsed.sampleCleared,
             locale: parsed.locale === 'en' ? 'en' : 'zh',
             hideAmounts: parsed.hideAmounts === true,
@@ -306,7 +335,7 @@ export function accountBalanceOnDate(account: Account, entries: Entry[], iso: st
 }
 
 export function bookBalanceOnDate(accounts: Account[], entries: Entry[], iso: string) {
-    return accounts.reduce((sum, account) => sum + accountBalanceOnDate(account, entries, iso), 0);
+    return accounts.filter(countsTowardWorth).reduce((sum, account) => sum + accountBalanceOnDate(account, entries, iso), 0);
 }
 
 function roundMoney(value: number) {
@@ -387,8 +416,72 @@ export function holdingUnrealizedPnl(holding: Holding) {
     return roundMoney(holdingMarketValue(holding) - holding.costTotal);
 }
 
+export function countsTowardWorth(account: Account) {
+    return account.archived !== true;
+}
+
 export function accountsBalanceTotal(accounts: Account[], entries: Entry[]) {
-    return accounts.reduce((sum, account) => sum + accountTotal(account, entries), 0);
+    return accounts.filter(countsTowardWorth).reduce((sum, account) => sum + accountTotal(account, entries), 0);
+}
+
+export function solveMoney(raw: string) {
+    const text = raw.replace(/ /g, '').replace(/＋/g, '+').replace(/－/g, '-').replace(/−/g, '-');
+    if (!text) return null;
+    let total = 0;
+    let number = '';
+    let sign = 1;
+    const flush = () => {
+        if (!number) return false;
+        const value = Number(number);
+        if (!Number.isFinite(value)) return false;
+        total += sign * value;
+        number = '';
+        return true;
+    };
+    for (const character of text) {
+        if (character === '+' || character === '-') {
+            if (!flush()) return null;
+            sign = character === '-' ? -1 : 1;
+        } else {
+            number += character;
+        }
+    }
+    if (!flush()) return null;
+    return Math.round(total * 100) / 100;
+}
+
+function cycleDay(value: unknown) {
+    const day = Math.round(Number(value));
+    if (!Number.isFinite(day) || day < 1 || day > 28) return 0;
+    return day;
+}
+
+function parseRemoved(raw: unknown): RemovedEntry[] {
+    if (!Array.isArray(raw)) return [];
+    const kept: RemovedEntry[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const row = item as Partial<RemovedEntry>;
+        if (!row.entry || typeof row.entry !== 'object' || !row.entry.id) continue;
+        kept.push({
+            entry: { ...row.entry, claim: normalizeClaim(row.entry.claim) },
+            removedOn: typeof row.removedOn === 'string' ? row.removedOn : todayIsoStatic(),
+        });
+    }
+    return kept;
+}
+
+function purgeRemoved(list: RemovedEntry[]) {
+    const cutoff = shiftIso(todayIsoStatic(), -7);
+    return list.filter((item) => item.removedOn >= cutoff);
+}
+
+function shiftIso(iso: string, days: number) {
+    const cursor = new Date(`${iso}T00:00:00`);
+    cursor.setDate(cursor.getDate() + days);
+    const month = `${cursor.getMonth() + 1}`.padStart(2, '0');
+    const day = `${cursor.getDate()}`.padStart(2, '0');
+    return `${cursor.getFullYear()}-${month}-${day}`;
 }
 
 /** 净资产 = 账户余额 + 持仓市值（V0 持仓按当前市值计入历史曲线） */

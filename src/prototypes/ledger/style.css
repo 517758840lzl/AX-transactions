@@ -26,6 +26,116 @@
   font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.ledger-lock {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 28px;
+  background: #0b051d;
+  color: #fff;
+  text-align: center;
+}
+
+.ledger-lock p {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.ledger-lock button {
+  border: 0;
+  background: var(--pink);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ledger-math {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ledger-math button {
+  min-width: 40px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ledger-math button.is-solve {
+  padding: 0 16px;
+  border-color: var(--pink);
+  background: var(--pink);
+}
+
+.ledger-refund-done {
+  margin: 8px 0 0;
+  padding: 12px;
+  border-radius: 999px;
+  background: var(--wash);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ledger-removed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ledger-removed-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.ledger-removed-side .ledger-pill {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.ledger-bill {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ledger-bill-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ledger-bill .ledger-money {
+  color: #e85d75;
+}
+
 .ledger-phone {
   width: min(100%, 390px);
   height: 100%;
@@ -472,41 +582,138 @@
   color: var(--muted);
 }
 
-.ledger-accounts-hero {
+.ledger-worth-card {
   margin-top: 14px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 10px 14px rgba(11, 5, 29, 0.05);
 }
 
-.ledger-accounts-hero .ledger-segment {
-  margin-top: 14px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.ledger-accounts-hero .ledger-segment button {
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 13px;
-}
-
-.ledger-accounts-hero .ledger-segment button.is-on {
+.ledger-worth-open {
+  display: block;
+  width: 100%;
+  padding: 16px 16px 14px;
+  border: 0;
+  background: transparent;
   color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.ledger-accounts-hero .ledger-line {
-  margin-top: 12px;
+div.ledger-worth-open {
+  cursor: default;
 }
 
-.ledger-accounts-delta {
+.ledger-worth-top,
+.ledger-worth-growth {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35em;
-  margin: 12px 0 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ledger-worth-kicker {
+  margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
 }
 
-.ledger-accounts-delta .ledger-money {
+.ledger-worth-past {
   display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e85d75;
+}
+
+.ledger-worth-past.is-flat,
+.ledger-worth-change.is-flat {
+  color: var(--muted);
+}
+
+.ledger-worth-arrow {
+  width: 12px;
+  height: 12px;
+}
+
+.ledger-worth-growth {
+  margin-top: 14px;
+}
+
+.ledger-worth-change {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: #e85d75;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ledger-worth-change .ledger-money,
+.ledger-worth-change .ledger-money-mark,
+.ledger-worth-change .ledger-money-value,
+.ledger-worth-change .ledger-money-sign {
+  color: inherit;
+}
+
+.ledger-worth-pct {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ledger-worth-tabs {
+  display: flex;
+  border-top: 1px solid var(--line);
+}
+
+.ledger-worth-tabs button {
+  position: relative;
+  flex: 1;
+  padding: 12px 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ledger-worth-tabs button.is-on {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.ledger-worth-tabs button.is-on::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  bottom: 0;
+  left: 10px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--pink);
+}
+
+.ledger-worth-frame {
+  margin-top: 14px;
+  padding: 12px 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 10px 14px rgba(11, 5, 29, 0.05);
+}
+
+.ledger-worth-line {
+  display: block;
+  width: 100%;
+  height: 200px;
 }
 
 .ledger-account-group {
@@ -611,14 +818,6 @@
 
 .ledger-account-delta.is-down {
   color: #e85d75;
-}
-
-.ledger-accounts-delta .ledger-tone-up {
-  color: #8ee4b0;
-}
-
-.ledger-accounts-delta .ledger-tone-down {
-  color: #ffb3c7;
 }
 
 .ledger-account-detail-meta .ledger-tone-up {
@@ -1358,6 +1557,62 @@ button.ledger-card.ledger-profile {
   cursor: pointer;
   outline: none;
   text-decoration: none;
+}
+
+.ledger-pick-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 10px 14px rgba(11, 5, 29, 0.05);
+}
+
+.ledger-pick-card button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-pick-card button.is-on {
+  background: var(--wash);
+}
+
+.ledger-pick-code {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ledger-pick-mark {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ledger-pick-check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: var(--pink);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .ledger-export-card {

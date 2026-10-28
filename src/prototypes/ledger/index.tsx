@@ -8,7 +8,6 @@ import {
     accountBalanceOnDate,
     accountKindOrder,
     accountTotal,
-    accountsBalanceTotal,
     bookBalanceOnDate,
     bookNetWorth,
     bookNetWorthOnDate,
@@ -30,6 +29,7 @@ import {
     normalizeCurrency,
     parseGoals,
     saveBook,
+    solveMoney,
     signedValue,
     categoryBudgetHint,
     defaultMonthlyBudgetHint,
@@ -55,10 +55,12 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'language' | 'currency' | 'categories';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'language' | 'currency' | 'categories' | 'worth' | 'removed';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30;
+type WorthSpan = 'week' | 'month' | 'quarter' | 'year' | 'all';
+const WORTH_SPANS: WorthSpan[] = ['week', 'month', 'quarter', 'year', 'all'];
 
 function genderLabel(gender: Gender, L: Copy) {
     if (gender === 'male') return L.genderMale;
@@ -208,7 +210,75 @@ function accountKindLabel(L: Copy, kind: AccountKind) {
     return L.accountKindCash;
 }
 
-function accountsWindowStart(days: AccountsWindow) {
+function worthDayCount(span: WorthSpan, entries: Entry[]) {
+    if (span === 'week') return 7;
+    if (span === 'month') return 30;
+    if (span === 'quarter') return 90;
+    if (span === 'year') return 365;
+    const dates = entries.map((entry) => entry.date).filter((day) => day.length >= 10);
+    if (dates.length === 0) return 2;
+    const first = dates.reduce((left, right) => (left < right ? left : right));
+    const start = new Date(`${first}T00:00:00`);
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+    const count = Math.round((end.getTime() - start.getTime()) / 86400000);
+    return Math.max(count + 1, 2);
+}
+
+function worthPastLabel(L: Copy, span: WorthSpan) {
+    if (span === 'week') return L.worthPastWeek;
+    if (span === 'quarter') return L.worthPastQuarter;
+    if (span === 'year') return L.worthPastYear;
+    if (span === 'all') return L.worthPastAll;
+    return L.worthPastMonth;
+}
+
+function worthSpanLabel(L: Copy, span: WorthSpan) {
+    if (span === 'week') return L.worthSpanWeek;
+    if (span === 'quarter') return L.worthSpanQuarter;
+    if (span === 'year') return L.worthSpanYear;
+    if (span === 'all') return L.worthSpanAll;
+    return L.worthSpanMonth;
+}
+
+function openAccountList(accounts: Account[], keeping = '') {
+    return accounts.filter((account) => account.archived !== true || account.id === keeping);
+}
+
+function showsSolve(raw: string) {
+    return /[+\-＋－−]/.test(raw) && solveMoney(raw) != null;
+}
+
+function cardCycle(account: Account, entries: Entry[]) {
+    const statementDay = account.statementDay ?? 0;
+    if (normalizeAccountKind(account.kind) !== 'card' || statementDay < 1) return null;
+    const today = todayIso();
+    const offset = new Date().getDate() >= statementDay ? 0 : -1;
+    const start = isoDate(new Date(new Date().getFullYear(), new Date().getMonth() + offset, statementDay));
+    const nextStart = isoDate(new Date(new Date().getFullYear(), new Date().getMonth() + offset + 1, statementDay));
+    const end = isoBefore(nextStart);
+    const dueDay = (account.dueDay ?? 0) >= 1 ? (account.dueDay as number) : statementDay;
+    let due = isoDate(new Date(new Date().getFullYear(), new Date().getMonth() + offset, dueDay));
+    if (due <= start) due = isoDate(new Date(new Date().getFullYear(), new Date().getMonth() + offset + 1, dueDay));
+    const close = end < today ? end : today;
+    const spent = entries
+        .filter((entry) => entry.accountId === account.id && entry.date >= start && entry.date <= close)
+        .reduce((sum, entry) => sum + (entry.direction === 'out' ? entry.amount : -entry.amount), 0);
+    return { start, end, due, spent: Math.round(spent * 100) / 100 };
+}
+
+function goalKept(goal: SavingGoal, entries: Entry[]) {
+    const linked = entries
+        .filter((entry) => entry.goalId === goal.id && entry.direction === 'out')
+        .reduce((sum, entry) => sum + entry.amount, 0);
+    return Math.round((goal.saved + linked) * 100) / 100;
+}
+
+function countsInBudget(entry: Entry) {
+    return entry.countsInBudget !== false;
+}
+
+function accountsWindowStart(days: number) {
     const cursor = new Date();
     cursor.setDate(cursor.getDate() - (days - 1));
     return isoDate(cursor);
@@ -227,7 +297,7 @@ function formatPct(delta: number, base: number) {
     return `${sign}${pct.toFixed(1)}%`;
 }
 
-function netWorthSeries(accounts: Account[], entries: Entry[], holdings: Holding[], days: AccountsWindow) {
+function netWorthSeries(accounts: Account[], entries: Entry[], holdings: Holding[], days: number) {
     const start = accountsWindowStart(days);
     const end = todayIso();
     return eachDay(start, end).map((day) => ({
@@ -604,6 +674,11 @@ type EntryDraft = {
     shared: boolean;
     checked: boolean;
     claim: ClaimMark;
+    goalId: string;
+    splitOn: boolean;
+    otherAmount: string;
+    otherCategory: string;
+    otherShared: boolean;
 };
 
 function blankEntry(book: Book): EntryDraft {
@@ -614,11 +689,16 @@ function blankEntry(book: Book): EntryDraft {
         direction: 'out',
         category: book.categories[0] ?? '餐饮',
         date: todayIso(),
-        accountId: book.accounts[0]?.id ?? '',
+        accountId: book.accounts.find((account) => account.archived !== true)?.id ?? '',
         accountName: '现金',
         shared: false,
         checked: false,
         claim: 'none',
+        goalId: '',
+        splitOn: false,
+        otherAmount: '',
+        otherCategory: book.categories[1] ?? book.categories[0] ?? '餐饮',
+        otherShared: false,
     };
 }
 
@@ -653,7 +733,14 @@ export default function LedgerApp() {
     const [holdingCost, setHoldingCost] = useState('');
     const [holdingPrice, setHoldingPrice] = useState('');
     const [holdingPriceDate, setHoldingPriceDate] = useState(todayIso);
-    const [accountsWindowDays, setAccountsWindowDays] = useState<AccountsWindow>(30);
+    const [worthSpan, setWorthSpan] = useState<WorthSpan>('month');
+    const [locked, setLocked] = useState(() => loadBook().lockOnOpen === true);
+    const [statementDay, setStatementDay] = useState('');
+    const [dueDay, setDueDay] = useState('');
+    const [accountArchived, setAccountArchived] = useState(false);
+    const [depositAmount, setDepositAmount] = useState('');
+    const [depositFrom, setDepositFrom] = useState('');
+    const [depositTo, setDepositTo] = useState('');
     const [categoryName, setCategoryName] = useState('');
     const [editingCategories, setEditingCategories] = useState(false);
     const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
@@ -695,24 +782,22 @@ export default function LedgerApp() {
         [book.entries, scope],
     );
     const balance = bookNetWorth(book.accounts, book.entries, book.holdings ?? []);
-    const cashBalance = accountsBalanceTotal(book.accounts, book.entries);
-    const holdingsTotal = holdingsMarketTotal(book.holdings ?? []);
     const monthKey = todayIso().slice(0, 7);
     const monthEntries = visibleEntries.filter((entry) => entry.date.startsWith(monthKey));
-    const monthOut = monthEntries.filter((entry) => entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0);
-    const monthIn = monthEntries.filter((entry) => entry.direction === 'in').reduce((sum, entry) => sum + entry.amount, 0);
+    const monthOut = monthEntries.filter((entry) => entry.direction === 'out' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const monthIn = monthEntries.filter((entry) => entry.direction === 'in' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0);
     const monthSpend = eachDay(monthBounds(0).start, todayIso()).map((day) => ({
         day,
-        amount: visibleEntries.filter((entry) => entry.date === day && entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0),
+        amount: visibleEntries.filter((entry) => entry.date === day && entry.direction === 'out' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0),
     }));
     const reviewQueue = [...visibleEntries].filter((entry) => !entry.checked).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
     const bounds = periodBounds(periodMode, rangeFrom, rangeTo);
     const periodEntries = visibleEntries.filter((entry) => entry.date >= bounds.start && entry.date <= bounds.end);
-    const periodOut = periodEntries.filter((entry) => entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0);
-    const periodIn = periodEntries.filter((entry) => entry.direction === 'in').reduce((sum, entry) => sum + entry.amount, 0);
-    const spendParts = [...new Set(periodEntries.filter((entry) => entry.direction === 'out').map((entry) => entry.category))].map((name, index) => ({
+    const periodOut = periodEntries.filter((entry) => entry.direction === 'out' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const periodIn = periodEntries.filter((entry) => entry.direction === 'in' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const spendParts = [...new Set(periodEntries.filter((entry) => entry.direction === 'out' && countsInBudget(entry)).map((entry) => entry.category))].map((name, index) => ({
         name,
-        amount: periodEntries.filter((entry) => entry.category === name && entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0),
+        amount: periodEntries.filter((entry) => entry.category === name && entry.direction === 'out' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0),
         color: sliceColors[index % sliceColors.length],
     })).filter((item) => item.amount > 0);
     const monthCategoryParts = [...new Set(monthEntries.filter((entry) => entry.direction === 'out').map((entry) => entry.category))].map((name, index) => ({
@@ -740,11 +825,12 @@ export default function LedgerApp() {
     const stockHoldings = holdings.filter((item) => item.kind === 'stock' || item.kind === 'etf');
     const fundHoldings = holdings.filter((item) => item.kind === 'fund');
     const accountsCombined = bookNetWorth(book.accounts, book.entries, holdings);
+    const worthDays = worthDayCount(worthSpan, book.entries);
     const accountsTrend = useMemo(
-        () => netWorthSeries(book.accounts, book.entries, holdings, accountsWindowDays),
-        [book.accounts, book.entries, holdings, accountsWindowDays],
+        () => netWorthSeries(book.accounts, book.entries, holdings, worthDays),
+        [book.accounts, book.entries, holdings, worthDays],
     );
-    const accountsWindowFrom = accountsWindowStart(accountsWindowDays);
+    const accountsWindowFrom = accountsWindowStart(worthDays);
     const accountsWindowPrior = bookNetWorthOnDate(book.accounts, book.entries, holdings, isoBefore(accountsWindowFrom));
     const accountsWindowDelta = accountsCombined - accountsWindowPrior;
     const filteredAccountName = book.accounts.find((item) => item.id === accountFilter)?.name;
@@ -808,15 +894,20 @@ export default function LedgerApp() {
                 shared: entry.shared,
                 checked: entry.checked,
                 claim: normalizeClaim(entry.claim),
+                goalId: entry.goalId ?? '',
+                splitOn: false,
+                otherAmount: '',
+                otherCategory: book.categories[0] ?? '餐饮',
+                otherShared: false,
             });
         }
         setPanel('entry');
     }
 
     function saveEntry() {
-        const amount = Number(draft.amount);
+        const amount = solveMoney(draft.amount);
         const title = draft.title.trim();
-        if (!title || !Number.isFinite(amount) || amount <= 0) return;
+        if (!title || amount == null || amount <= 0) return;
         let accountId = draft.accountId;
         let accounts = book.accounts;
         if (!accountId) {
@@ -824,8 +915,10 @@ export default function LedgerApp() {
             accounts = [...accounts, created];
             accountId = created.id;
         }
+        const splitting = draft.splitOn && !draft.id;
+        const firstId = draft.id || createId();
         const next: Entry = {
-            id: draft.id || createId(),
+            id: firstId,
             title,
             amount,
             direction: draft.direction,
@@ -835,9 +928,49 @@ export default function LedgerApp() {
             shared: draft.shared,
             checked: draft.checked,
             claim: draft.direction === 'out' ? draft.claim : 'none',
+            goalId: draft.direction === 'out' && !splitting ? draft.goalId : '',
+            refundOf: book.entries.find((entry) => entry.id === draft.id)?.refundOf ?? '',
+            splitGroup: splitting ? firstId : (book.entries.find((entry) => entry.id === draft.id)?.splitGroup ?? ''),
         };
-        const entries = draft.id ? book.entries.map((entry) => (entry.id === draft.id ? next : entry)) : [next, ...book.entries];
+        let entries = draft.id ? book.entries.map((entry) => (entry.id === draft.id ? next : entry)) : [next, ...book.entries];
+        if (splitting) {
+            const other = solveMoney(draft.otherAmount);
+            if (other != null && other > 0) {
+                entries = [{
+                    ...next,
+                    id: createId(),
+                    amount: other,
+                    category: draft.otherCategory || draft.category,
+                    shared: draft.otherShared,
+                    goalId: '',
+                    refundOf: '',
+                    splitGroup: firstId,
+                    claim: 'none',
+                }, ...entries];
+            }
+        }
         setBook({ ...book, accounts, entries });
+        setPanel('none');
+    }
+
+    function refundEntry(source: Entry) {
+        if (source.direction !== 'out' || source.refundOf) return;
+        if (book.entries.some((entry) => entry.refundOf === source.id)) return;
+        const back: Entry = {
+            id: `refund-${source.id}`,
+            title: L.refundBack.replace('{title}', source.title),
+            amount: source.amount,
+            direction: 'in',
+            category: source.category,
+            date: todayIso(),
+            accountId: source.accountId,
+            shared: source.shared,
+            checked: true,
+            claim: 'none',
+            countsInBudget: false,
+            refundOf: source.id,
+        };
+        setBook({ ...book, entries: [back, ...book.entries] });
         setPanel('none');
     }
 
@@ -867,6 +1000,10 @@ export default function LedgerApp() {
         setGoalTitle(goal?.title ?? '');
         setGoalTarget(goal ? goal.target.toFixed(2) : '');
         setGoalSaved(goal ? goal.saved.toFixed(2) : '');
+        const open = openAccountList(book.accounts);
+        setDepositFrom(open[0]?.id ?? '');
+        setDepositTo(open[1]?.id ?? '');
+        setDepositAmount('');
         setPanel('goal');
     }
 
@@ -886,6 +1023,44 @@ export default function LedgerApp() {
             : [...book.goals, next];
         setBook({ ...book, goals });
         setPanel('none');
+    }
+
+    function depositTowardGoal() {
+        const amount = solveMoney(depositAmount);
+        const goal = book.goals.find((item) => item.id === goalId);
+        const from = book.accounts.find((item) => item.id === depositFrom);
+        const to = book.accounts.find((item) => item.id === depositTo);
+        if (!goal || !from || !to || from.id === to.id || amount == null || amount <= 0) return;
+        const stamp = createId();
+        const incoming: Entry = {
+            id: `transfer-${stamp}-in`,
+            title: `${L.transferFrom} ${from.name}`,
+            amount,
+            direction: 'in',
+            category: L.transferCategory,
+            date: todayIso(),
+            accountId: to.id,
+            shared: false,
+            checked: true,
+            countsInBudget: false,
+            claim: 'none',
+        };
+        const outgoing: Entry = {
+            id: `transfer-${stamp}-out`,
+            title: goal.title,
+            amount,
+            direction: 'out',
+            category: L.transferCategory,
+            date: todayIso(),
+            accountId: from.id,
+            shared: false,
+            checked: true,
+            countsInBudget: false,
+            claim: 'none',
+            goalId: goal.id,
+        };
+        setDepositAmount('');
+        setBook({ ...book, entries: [incoming, outgoing, ...book.entries] });
     }
 
     function deleteGoal(id: string) {
@@ -913,13 +1088,25 @@ export default function LedgerApp() {
             shared: source.shared,
             checked: true,
             claim: 'none',
+            countsInBudget: false,
         };
         setBook({ ...book, entries: [back, ...updated] });
     }
 
     function removeEntry(id: string) {
-        setBook({ ...book, entries: book.entries.filter((entry) => entry.id !== id) });
+        const entry = book.entries.find((item) => item.id === id);
+        const removed = entry
+            ? [{ entry, removedOn: todayIso() }, ...(book.removed ?? []).filter((item) => item.entry.id !== id)]
+            : (book.removed ?? []);
+        setBook({ ...book, entries: book.entries.filter((item) => item.id !== id), removed });
         setPanel('none');
+    }
+
+    function restoreEntry(id: string) {
+        const item = (book.removed ?? []).find((row) => row.entry.id === id);
+        if (!item) return;
+        const entries = book.entries.some((entry) => entry.id === id) ? book.entries : [item.entry, ...book.entries];
+        setBook({ ...book, entries, removed: (book.removed ?? []).filter((row) => row.entry.id !== id) });
     }
 
     function toggleChecked(id: string) {
@@ -941,6 +1128,9 @@ export default function LedgerApp() {
         setAccountName(account?.name ?? '');
         setAccountOpening(account ? String(account.opening) : '');
         setAccountKind(normalizeAccountKind(account?.kind));
+        setAccountArchived(account?.archived === true);
+        setStatementDay(account?.statementDay ? String(account.statementDay) : '');
+        setDueDay(account?.dueDay ? String(account.dueDay) : '');
         setPanel('account');
     }
 
@@ -948,14 +1138,26 @@ export default function LedgerApp() {
         setPanel(viewingAccountId ? 'accountDetail' : 'none');
     }
 
-    function saveAccount() {
+    function saveAccount(archived = accountArchived) {
         const name = accountName.trim();
         const opening = Number(accountOpening);
         if (!name || !Number.isFinite(opening)) return;
         const kind = normalizeAccountKind(accountKind);
+        const day = (raw: string) => {
+            const value = Math.round(Number(raw));
+            return Number.isFinite(value) && value >= 1 && value <= 28 ? value : 0;
+        };
+        const next = {
+            name,
+            opening,
+            kind,
+            archived,
+            statementDay: kind === 'card' ? day(statementDay) : 0,
+            dueDay: kind === 'card' ? day(dueDay) : 0,
+        };
         const accounts = editingAccountId
-            ? book.accounts.map((item) => (item.id === editingAccountId ? { ...item, name, opening, kind } : item))
-            : [...book.accounts, { id: createId(), name, opening, kind }];
+            ? book.accounts.map((item) => (item.id === editingAccountId ? { ...item, ...next } : item))
+            : [...book.accounts, { id: createId(), ...next }];
         setBook({ ...book, accounts });
         closeAccountEditor();
     }
@@ -1112,8 +1314,9 @@ export default function LedgerApp() {
     }
 
     function openTransferPanel() {
-        setTransferFrom(book.accounts[0]?.id ?? '');
-        setTransferTo(book.accounts[1]?.id ?? book.accounts[0]?.id ?? '');
+        const open = openAccountList(book.accounts);
+        setTransferFrom(open[0]?.id ?? '');
+        setTransferTo(open[1]?.id ?? open[0]?.id ?? '');
         setTransferAmount('');
         setTransferDate(todayIso());
         setPanel('transfer');
@@ -1139,6 +1342,7 @@ export default function LedgerApp() {
             accountId: from.id,
             shared: false,
             checked: true,
+            countsInBudget: false,
         };
         const inEntry: Entry = {
             id: createId(),
@@ -1150,6 +1354,7 @@ export default function LedgerApp() {
             accountId: to.id,
             shared: false,
             checked: true,
+            countsInBudget: false,
         };
         setBook({ ...book, categories, entries: [inEntry, outEntry, ...book.entries] });
         setPanel('none');
@@ -1230,6 +1435,7 @@ export default function LedgerApp() {
             holdings: [],
             entries: [],
             goals: [],
+            removed: [],
             templates: [],
             monthlyBudget: null,
             categoryBudgets: {},
@@ -1244,13 +1450,13 @@ export default function LedgerApp() {
         }, 2000);
     }
 
-    function openAccountFeed(accountId: string) {
+    function openAccountFeed(accountId: string, from?: string, to?: string) {
         setPanel('none');
         setViewingAccountId('');
         setAccountFilter(accountId);
         setPeriodMode('range');
-        setRangeFrom(accountsWindowStart(accountsWindowDays));
-        setRangeTo(todayIso());
+        setRangeFrom(from ?? accountsWindowStart(30));
+        setRangeTo(to ?? todayIso());
         setCategoryFilter(ALL_CATEGORIES);
         setStatusFilter('all');
         setSearch('');
@@ -1263,6 +1469,12 @@ export default function LedgerApp() {
         <AmountsHidden.Provider value={book.hideAmounts === true}>
         <main className="ledger">
             <section className="ledger-phone">
+                {locked && book.lockOnOpen && (
+                    <div className="ledger-lock">
+                        <p>{L.lockTitle}</p>
+                        <button type="button" onClick={() => setLocked(false)}>{L.lockRetry}</button>
+                    </div>
+                )}
                 <div className="ledger-stage">
                 <div className={`ledger-body${showFab ? '' : ' is-rest'}${panel === 'privacy' ? ' is-privacy' : ''}`}>
                     {panel === 'entry' && (
@@ -1276,6 +1488,10 @@ export default function LedgerApp() {
                             onChange={setDraft}
                             onSave={saveEntry}
                             onDelete={() => draft.id && removeEntry(draft.id)}
+                            onRefund={() => {
+                                const source = book.entries.find((entry) => entry.id === draft.id);
+                                if (source) refundEntry(source);
+                            }}
                             onBack={() => setPanel('none')}
                         />
                     )}
@@ -1309,9 +1525,9 @@ export default function LedgerApp() {
                         <>
                             <SubpageHead L={L} title={L.transferTitle} onBack={() => setPanel('none')} />
                             <label className="ledger-label" htmlFor="transfer-from">{L.transferFrom}</label>
-                            <ChoiceMenu id="transfer-from" label={L.transferFrom} value={transferFrom} options={book.accounts.map((account) => ({ value: account.id, label: account.name }))} onChange={setTransferFrom} />
+                            <ChoiceMenu id="transfer-from" label={L.transferFrom} value={transferFrom} options={openAccountList(book.accounts, transferFrom).map((account) => ({ value: account.id, label: account.name }))} onChange={setTransferFrom} />
                             <label className="ledger-label" htmlFor="transfer-to">{L.transferTo}</label>
-                            <ChoiceMenu id="transfer-to" label={L.transferTo} value={transferTo} options={book.accounts.map((account) => ({ value: account.id, label: account.name }))} onChange={setTransferTo} />
+                            <ChoiceMenu id="transfer-to" label={L.transferTo} value={transferTo} options={openAccountList(book.accounts, transferTo).map((account) => ({ value: account.id, label: account.name }))} onChange={setTransferTo} />
                             <label className="ledger-label" htmlFor="transfer-amount">{L.amount}</label>
                             <input id="transfer-amount" className="ledger-field" inputMode="decimal" value={transferAmount} onChange={(event) => setTransferAmount(event.target.value)} />
                             <label className="ledger-label" htmlFor="transfer-date">{L.date}</label>
@@ -1332,8 +1548,59 @@ export default function LedgerApp() {
                             </div>
                             <label className="ledger-label" htmlFor="account-opening">{L.accountBalance}</label>
                             <input id="account-opening" className="ledger-field" inputMode="decimal" value={accountOpening} placeholder="0.00" onChange={(event) => setAccountOpening(event.target.value)} />
-                            <button type="button" className="ledger-pill" onClick={saveAccount} disabled={!accountName.trim() || accountOpening.trim() === '' || Number.isNaN(Number(accountOpening))}>{L.save}</button>
+                            {accountKind === 'card' && (
+                                <>
+                                    <label className="ledger-label" htmlFor="account-statement">{L.cardStatementDay}</label>
+                                    <input id="account-statement" className="ledger-field" inputMode="numeric" value={statementDay} placeholder="1–28" onChange={(event) => setStatementDay(event.target.value)} />
+                                    <label className="ledger-label" htmlFor="account-due">{L.cardDueDay}</label>
+                                    <input id="account-due" className="ledger-field" inputMode="numeric" value={dueDay} placeholder="1–28" onChange={(event) => setDueDay(event.target.value)} />
+                                </>
+                            )}
+                            <button type="button" className="ledger-pill" onClick={() => saveAccount()} disabled={!accountName.trim() || accountOpening.trim() === '' || Number.isNaN(Number(accountOpening))}>{L.save}</button>
+                            {editingAccountId && (
+                                <button type="button" className="ledger-pill ledger-pill-secondary" onClick={() => saveAccount(!accountArchived)}>{accountArchived ? L.restoreAccount : L.archiveAccount}</button>
+                            )}
                             {editingAccountId && <button type="button" className="ledger-text-button" onClick={() => removeAccount(editingAccountId)}>{L.deleteAccount}</button>}
+                        </>
+                    )}
+                    {panel === 'removed' && (
+                        <>
+                            <SubpageHead L={L} title={L.removedTitle} onBack={() => setPanel('none')} />
+                            {(book.removed ?? []).length === 0 ? (
+                                <p className="ledger-empty">{L.removedEmpty}</p>
+                            ) : (
+                                <ul className="ledger-tx-list">
+                                    {(book.removed ?? []).map((item) => (
+                                        <li key={item.entry.id} className="ledger-removed-row">
+                                            <div>
+                                                <b>{item.entry.title}</b>
+                                                <p className="ledger-account-meta">{item.removedOn}</p>
+                                            </div>
+                                            <div className="ledger-removed-side">
+                                                <MoneyAmount value={item.entry.direction === 'out' ? -item.entry.amount : item.entry.amount} mark={mark} size="sm" signed />
+                                                <button type="button" className="ledger-pill" onClick={() => restoreEntry(item.entry.id)}>{L.removedRestore}</button>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </>
+                    )}
+                    {panel === 'worth' && (
+                        <>
+                            <SubpageHead L={L} title={L.netAssets} onBack={() => setPanel('none')} />
+                            <WorthSummary
+                                L={L}
+                                mark={mark}
+                                worth={accountsCombined}
+                                delta={accountsWindowDelta}
+                                prior={accountsWindowPrior}
+                                span={worthSpan}
+                                onSpan={setWorthSpan}
+                            />
+                            <div className="ledger-worth-frame">
+                                <WorthCurve points={accountsTrend} label={L.accountsTrend} />
+                            </div>
                         </>
                     )}
                     {panel === 'accountDetail' && viewingAccount && (
@@ -1342,10 +1609,9 @@ export default function LedgerApp() {
                             account={viewingAccount}
                             entries={book.entries}
                             mark={mark}
-                            windowDays={accountsWindowDays}
                             onBack={() => { setViewingAccountId(''); setPanel('none'); }}
                             onEdit={() => openAccount(viewingAccount)}
-                            onActivity={() => openAccountFeed(viewingAccount.id)}
+                            onActivity={(from, to) => openAccountFeed(viewingAccount.id, from, to)}
                         />
                     )}
                     {panel === 'holding' && (
@@ -1419,15 +1685,12 @@ export default function LedgerApp() {
                     {panel === 'language' && (
                         <>
                             <SubpageHead L={L} title={L.language} onBack={() => setPanel('none')} />
-                            <div className="ledger-export-card">
-                                {localeChoices.map((item, index) => (
-                                    <React.Fragment key={item.id}>
-                                        {index > 0 && <div className="ledger-settings-divider" role="presentation" />}
-                                        <button type="button" className="ledger-row-link" onClick={() => setBook({ ...book, locale: item.id })}>
-                                            <span>{item.title}</span>
-                                            {locale === item.id && <span aria-hidden="true">✓</span>}
-                                        </button>
-                                    </React.Fragment>
+                            <div className="ledger-pick-card">
+                                {localeChoices.map((item) => (
+                                    <button key={item.id} type="button" className={locale === item.id ? 'is-on' : ''} onClick={() => setBook({ ...book, locale: item.id })}>
+                                        <span className="ledger-pick-code">{item.title}</span>
+                                        {locale === item.id && <span className="ledger-pick-check" aria-hidden="true">✓</span>}
+                                    </button>
                                 ))}
                             </div>
                         </>
@@ -1435,15 +1698,13 @@ export default function LedgerApp() {
                     {panel === 'currency' && (
                         <>
                             <SubpageHead L={L} title={L.currency} onBack={() => setPanel('none')} />
-                            <div className="ledger-export-card">
-                                {currencyOptions.map((item, index) => (
-                                    <React.Fragment key={item}>
-                                        {index > 0 && <div className="ledger-settings-divider" role="presentation" />}
-                                        <button type="button" className="ledger-row-link" onClick={() => setBook({ ...book, currency: item })}>
-                                            <span>{item}  {currencyMark[item]}</span>
-                                            {book.currency === item && <span aria-hidden="true">✓</span>}
-                                        </button>
-                                    </React.Fragment>
+                            <div className="ledger-pick-card">
+                                {currencyOptions.map((item) => (
+                                    <button key={item} type="button" className={book.currency === item ? 'is-on' : ''} onClick={() => setBook({ ...book, currency: item })}>
+                                        <span className="ledger-pick-code">{item}</span>
+                                        <span className="ledger-pick-mark">{currencyMark[item]}</span>
+                                        {book.currency === item && <span className="ledger-pick-check" aria-hidden="true">✓</span>}
+                                    </button>
                                 ))}
                             </div>
                         </>
@@ -1489,12 +1750,13 @@ export default function LedgerApp() {
                             <SubpageHead L={L} title={L.savingGoals} onBack={() => setPanel('none')} />
                             <button type="button" className="ledger-pill" onClick={() => openGoal()}>{L.add}</button>
                             {book.goals.map((goal) => {
-                                const ratio = goal.target > 0 ? Math.min(100, (goal.saved / goal.target) * 100) : 0;
+                                const kept = goalKept(goal, book.entries);
+                                const ratio = goal.target > 0 ? Math.min(100, (kept / goal.target) * 100) : 0;
                                 return (
                                     <button key={goal.id} type="button" className="ledger-goal-row" onClick={() => openGoal(goal)}>
                                         <span className="ledger-goal-meta">
                                             <b>{goal.title}</b>
-                                            <MoneyAmount value={goal.saved} mark={mark} size="sm" />
+                                            <MoneyAmount value={kept} mark={mark} size="sm" />
                                             <span className="ledger-goal-slash">/</span>
                                             <span className="ledger-goal-cap"><MoneyAmount value={goal.target} mark={mark} size="sm" /></span>
                                         </span>
@@ -1516,6 +1778,19 @@ export default function LedgerApp() {
                             <label className="ledger-label" htmlFor="goal-saved">{L.savingSaved}</label>
                             <input id="goal-saved" className="ledger-field" inputMode="decimal" value={goalSaved} placeholder="0.00" onChange={(event) => setGoalSaved(event.target.value)} />
                             <button type="button" className="ledger-pill" onClick={saveGoal} disabled={!goalTitle.trim() || !(Number(goalTarget) > 0)}>{L.save}</button>
+                            {goalId && openAccountList(book.accounts).length >= 2 && (
+                                <section className="ledger-card">
+                                    <h2>{L.goalDeposit}</h2>
+                                    <p className="ledger-panel-note">{L.goalFrom} / {L.goalTo}</p>
+                                    <label className="ledger-label" htmlFor="deposit-amount">{L.amount}</label>
+                                    <input id="deposit-amount" className="ledger-field" inputMode="decimal" value={depositAmount} placeholder="0.00" onChange={(event) => setDepositAmount(event.target.value)} />
+                                    <label className="ledger-label" htmlFor="deposit-from">{L.goalFrom}</label>
+                                    <ChoiceMenu id="deposit-from" label={L.goalFrom} value={depositFrom} options={openAccountList(book.accounts).map((account) => ({ value: account.id, label: account.name }))} onChange={setDepositFrom} />
+                                    <label className="ledger-label" htmlFor="deposit-to">{L.goalTo}</label>
+                                    <ChoiceMenu id="deposit-to" label={L.goalTo} value={depositTo} options={openAccountList(book.accounts).map((account) => ({ value: account.id, label: account.name }))} onChange={setDepositTo} />
+                                    <button type="button" className="ledger-pill ledger-pill-secondary" onClick={depositTowardGoal} disabled={!(solveMoney(depositAmount) != null && solveMoney(depositAmount)! > 0) || !depositFrom || depositFrom === depositTo}>{L.goalDeposit}</button>
+                                </section>
+                            )}
                             {goalId && <button type="button" className="ledger-text-button" onClick={() => deleteGoal(goalId)}>{L.deleteEntry}</button>}
                         </>
                     )}
@@ -1766,35 +2041,18 @@ export default function LedgerApp() {
                                 <p className="ledger-empty">{L.accountsEmpty}</p>
                             ) : (
                                 <>
-                                    <article className="ledger-net-card ledger-accounts-hero">
-                                        <p>{L.netAssets}</p>
-                                        <MoneyAmount value={accountsCombined} mark={mark} size="hero" />
-                                        {holdingsTotal > 0 && (
-                                            <p className="ledger-net-foot">
-                                                {L.accountBalance} <MoneyAmount value={cashBalance} mark={mark} size="sm" />
-                                                · {L.holdingMarketValue} <MoneyAmount value={holdingsTotal} mark={mark} size="sm" />
-                                            </p>
-                                        )}
-                                        <div className="ledger-segment ledger-accounts-window" role="tablist" aria-label={L.accountsTrend}>
-                                            {([
-                                                [7, L.accountsWindow7],
-                                                [30, L.accountsWindow30],
-                                            ] as const).map(([days, label]) => (
-                                                <button key={days} type="button" role="tab" aria-selected={accountsWindowDays === days} className={accountsWindowDays === days ? 'is-on' : ''} onClick={() => setAccountsWindowDays(days)}>{label}</button>
-                                            ))}
-                                        </div>
-                                        <SpendLine L={L} points={accountsTrend} active="" fitRange />
-                                        <p className="ledger-accounts-delta">
-                                            <span>{L.accountPeriodDelta}</span>
-                                            <span className={accountsWindowDelta >= 0 ? 'ledger-tone-up' : 'ledger-tone-down'}>
-                                                <MoneyAmount value={accountsWindowDelta} mark={mark} size="sm" signed />
-                                                {' '}
-                                                {formatPct(accountsWindowDelta, accountsWindowPrior)}
-                                            </span>
-                                        </p>
-                                    </article>
+                                    <WorthSummary
+                                        L={L}
+                                        mark={mark}
+                                        worth={accountsCombined}
+                                        delta={accountsWindowDelta}
+                                        prior={accountsWindowPrior}
+                                        span={worthSpan}
+                                        onSpan={setWorthSpan}
+                                        onOpen={() => setPanel('worth')}
+                                    />
                                     {accountKindOrder.map((kind) => {
-                                        const group = book.accounts.filter((account) => normalizeAccountKind(account.kind) === kind);
+                                        const group = book.accounts.filter((account) => normalizeAccountKind(account.kind) === kind && account.archived !== true);
                                         if (group.length === 0) return null;
                                         const groupTotal = group.reduce((sum, account) => sum + accountTotal(account, book.entries), 0);
                                         return (
@@ -1846,6 +2104,25 @@ export default function LedgerApp() {
                                             onOpen={openHoldingDetail}
                                         />
                                     )}
+                                    {book.accounts.some((account) => account.archived) && (
+                                        <section className="ledger-account-group">
+                                            <div className="ledger-account-group-head">
+                                                <h2>{L.archivedTitle}</h2>
+                                            </div>
+                                            {book.accounts.filter((account) => account.archived).map((account, index) => (
+                                                <button key={account.id} type="button" className="ledger-account-row" onClick={() => openAccountDetail(account)}>
+                                                    <div className="ledger-account-left">
+                                                        <div className="ledger-tx-icon" style={{ background: sliceColors[index % sliceColors.length] + '33' }}>{account.name.slice(0, 1)}</div>
+                                                        <div className="ledger-account-copy">
+                                                            <b>{account.name}</b>
+                                                            <p className="ledger-account-meta">{accountKindLabel(L, normalizeAccountKind(account.kind))}</p>
+                                                        </div>
+                                                    </div>
+                                                    <MoneyAmount value={accountTotal(account, book.entries)} mark={mark} size="md" />
+                                                </button>
+                                            ))}
+                                        </section>
+                                    )}
                                 </>
                             )}
                             {book.accounts.length >= 2 && (
@@ -1890,6 +2167,11 @@ export default function LedgerApp() {
                                     <span className="ledger-row-value">{book.hideAmounts ? L.hideAmountsOn : L.hideAmountsOff}</span>
                                 </button>
                                 <div className="ledger-settings-divider" role="presentation" />
+                                <button type="button" className="ledger-row-link" onClick={() => setBook({ ...book, lockOnOpen: book.lockOnOpen !== true })}>
+                                    <span>{L.lockOnOpen}</span>
+                                    <span className="ledger-row-value">{book.lockOnOpen ? L.lockOnWord : L.lockOffWord}</span>
+                                </button>
+                                <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.language} value={localeChoices.find((item) => item.id === locale)?.title ?? locale} onClick={() => setPanel('language')} />
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.currency} value={`${book.currency}  ${mark}`} onClick={() => setPanel('currency')} />
@@ -1899,6 +2181,8 @@ export default function LedgerApp() {
                                 <SettingsLink title={L.exportData} onClick={exportBookFile} />
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.importData} onClick={() => importFileRef.current?.click()} />
+                                <div className="ledger-settings-divider" role="presentation" />
+                                <SettingsLink title={L.removedTitle} value={(book.removed ?? []).length > 0 ? String(book.removed?.length) : undefined} onClick={() => setPanel('removed')} />
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.clearBook} danger onClick={() => setClearAsk(true)} />
                             </section>
@@ -2110,21 +2394,111 @@ function SpendDonut({ L, parts, total, active, mark, onPick }: { L: Copy; parts:
     );
 }
 
-/** 圆点直径约 7px。点距不够时隔天取样，避免 3 个月挤成一条。折线仍用全部日期。 */
-function spacedMarkers<T>(points: T[], width: number) {
-    if (points.length <= 2) return points;
-    const pointStep = (width - 20) / (points.length - 1);
-    const stride = pointStep >= 12 ? 1 : Math.ceil(12 / pointStep);
-    if (stride <= 1) return points;
-    const picked: T[] = [];
-    for (let index = 0; index < points.length; index += stride) picked.push(points[index]);
-    const last = points[points.length - 1];
-    const previous = (picked.length - 1) * stride;
-    if (previous !== points.length - 1) {
-        if (points.length - 1 - previous < stride) picked[picked.length - 1] = last;
-        else picked.push(last);
+function smoothCurve(points: { x: number; y: number }[]) {
+    if (points.length === 0) return '';
+    if (points.length === 1) return `M${points[0].x},${points[0].y}`;
+    let path = `M${points[0].x},${points[0].y}`;
+    if (points.length === 2) return `${path} L${points[1].x},${points[1].y}`;
+    for (let index = 0; index < points.length - 1; index += 1) {
+        const p0 = points[Math.max(index - 1, 0)];
+        const p1 = points[index];
+        const p2 = points[index + 1];
+        const p3 = points[Math.min(index + 2, points.length - 1)];
+        const c1x = p1.x + (p2.x - p0.x) / 6;
+        const c1y = p1.y + (p2.y - p0.y) / 6;
+        const c2x = p2.x - (p3.x - p1.x) / 6;
+        const c2y = p2.y - (p3.y - p1.y) / 6;
+        path += ` C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
     }
-    return picked;
+    return path;
+}
+
+function WorthCurve({ points, label }: { points: { day: string; amount: number }[]; label: string }) {
+    const width = 320;
+    const height = 180;
+    if (points.length === 0) return null;
+    const min = Math.min(...points.map((point) => point.amount));
+    const max = Math.max(...points.map((point) => point.amount));
+    const step = points.length <= 1 ? 0 : (width - 16) / (points.length - 1);
+    const plotH = height - 24;
+    const placed = points.map((point, index) => ({
+        x: 8 + index * step,
+        y: max === min ? height / 2 : 12 + (1 - (point.amount - min) / (max - min)) * plotH,
+    }));
+    const last = placed[placed.length - 1];
+    return (
+        <svg className="ledger-worth-line" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label}>
+            <path d={smoothCurve(placed)} fill="none" stroke="#E85D75" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx={last.x} cy={last.y} r="4" fill="#E85D75" />
+        </svg>
+    );
+}
+
+function WorthSummary({
+    L,
+    mark,
+    worth,
+    delta,
+    prior,
+    span,
+    onSpan,
+    onOpen,
+}: {
+    L: Copy;
+    mark: string;
+    worth: number;
+    delta: number;
+    prior: number;
+    span: WorthSpan;
+    onSpan: (span: WorthSpan) => void;
+    onOpen?: () => void;
+}) {
+    const tone = delta === 0 ? 'is-flat' : 'is-theme';
+    const body = (
+        <>
+            <div className="ledger-worth-top">
+                <p className="ledger-worth-kicker">{L.netAssets}</p>
+                <span className={`ledger-worth-past ${tone}`}>
+                    <WorthArrow down={delta < 0} />
+                    {worthPastLabel(L, span)}
+                </span>
+            </div>
+            <MoneyAmount value={worth} mark={mark} size="hero" />
+            <div className="ledger-worth-growth">
+                <p className="ledger-worth-kicker">{L.worthGrowth}</p>
+                <div className={`ledger-worth-change ${tone}`}>
+                    <MoneyAmount value={delta} mark={mark} size="md" signed />
+                    <span className="ledger-worth-pct">{formatPct(delta, prior)}</span>
+                </div>
+            </div>
+        </>
+    );
+    return (
+        <article className="ledger-worth-card">
+            {onOpen ? (
+                <button type="button" className="ledger-worth-open" onClick={onOpen}>{body}</button>
+            ) : (
+                <div className="ledger-worth-open">{body}</div>
+            )}
+            <div className="ledger-worth-tabs" role="tablist" aria-label={L.accountsTrend}>
+                {WORTH_SPANS.map((item) => (
+                    <button key={item} type="button" role="tab" aria-selected={span === item} className={span === item ? 'is-on' : ''} onClick={() => onSpan(item)}>{worthSpanLabel(L, item)}</button>
+                ))}
+            </div>
+        </article>
+    );
+}
+
+function WorthArrow({ down }: { down: boolean }) {
+    return (
+        <svg className="ledger-worth-arrow" viewBox="0 0 12 12" aria-hidden="true">
+            {down ? (
+                <path d="M2 2 10 10M10 4v6H4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            ) : (
+                <path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            )}
+        </svg>
+    );
 }
 
 function SpendLine({ L, points, active, onPick, fitRange = false }: { L: Copy; points: { day: string; amount: number }[]; active: string; onPick?: (day: string) => void; fitRange?: boolean }) {
@@ -2143,14 +2517,11 @@ function SpendLine({ L, points, active, onPick, fitRange = false }: { L: Copy; p
         }
         return { ...point, x: 10 + index * step, y };
     });
-    const path = placed.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`).join(' ');
-    const dots = spacedMarkers(placed, width);
+    const last = placed[placed.length - 1];
     return (
         <svg className="ledger-line" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={L.spendLineAria}>
-            <path d={path} fill="none" stroke="#E85D75" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-            {dots.map((point) => (
-                <circle key={point.day} cx={point.x} cy={point.y} r={active === point.day ? 5 : point.amount > 0 ? 3.5 : 2} fill={active === point.day ? '#0B051D' : '#FFB3C7'} stroke="#0B051D" strokeWidth="1.2" onClick={onPick ? () => onPick(point.day) : undefined} />
-            ))}
+            <path d={smoothCurve(placed)} fill="none" stroke="#E85D75" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+            {last && <circle cx={last.x} cy={last.y} r="4" fill="#E85D75" />}
         </svg>
     );
 }
@@ -2264,7 +2635,6 @@ function AccountDetailView({
     account,
     entries,
     mark,
-    windowDays,
     onBack,
     onEdit,
     onActivity,
@@ -2273,17 +2643,18 @@ function AccountDetailView({
     account: Account;
     entries: Entry[];
     mark: string;
-    windowDays: AccountsWindow;
     onBack: () => void;
     onEdit: () => void;
-    onActivity: () => void;
+    onActivity: (from: string, to: string) => void;
 }) {
+    const [windowDays, setWindowDays] = useState<AccountsWindow>(30);
     const total = accountTotal(account, entries);
     const windowFrom = accountsWindowStart(windowDays);
     const prior = accountBalanceOnDate(account, entries, isoBefore(windowFrom));
     const delta = total - prior;
     const flow = accountPeriodFlow(account.id, entries, windowFrom, todayIso());
     const series = netWorthSeries([account], entries, [], windowDays);
+    const cycle = cardCycle(account, entries);
 
     return (
         <>
@@ -2291,6 +2662,14 @@ function AccountDetailView({
             <article className="ledger-card">
                 <p className="ledger-settings-label">{accountKindLabel(L, normalizeAccountKind(account.kind))}</p>
                 <MoneyAmount value={total} mark={mark} size="hero" />
+                <div className="ledger-segment" role="tablist" aria-label={L.accountsTrend}>
+                    {([
+                        [7, L.accountsWindow7],
+                        [30, L.accountsWindow30],
+                    ] as const).map(([days, label]) => (
+                        <button key={days} type="button" role="tab" aria-selected={windowDays === days} className={windowDays === days ? 'is-on' : ''} onClick={() => setWindowDays(days)}>{label}</button>
+                    ))}
+                </div>
                 <p className="ledger-account-detail-meta">
                     <span>{L.accountPeriodDelta}</span>
                     <span className={delta >= 0 ? 'ledger-tone-up' : 'ledger-tone-down'}>
@@ -2309,8 +2688,19 @@ function AccountDetailView({
                 </p>
                 <SpendLine L={L} points={series} active="" />
             </article>
+            {cycle && (
+                <button type="button" className="ledger-card ledger-bill" onClick={() => onActivity(cycle.start, cycle.end)}>
+                    <span className="ledger-bill-head">
+                        <b>{L.cardBill}</b>
+                        <span aria-hidden="true">›</span>
+                    </span>
+                    <MoneyAmount value={cycle.spent} mark={mark} size="md" />
+                    <p className="ledger-account-meta">{L.cardDueDay} {cycle.due}</p>
+                    <p className="ledger-account-meta">{cycle.start} – {cycle.end}</p>
+                </button>
+            )}
             <button type="button" className="ledger-pill" onClick={onEdit}>{L.editAccount}</button>
-            <button type="button" className="ledger-text-button" onClick={onActivity}>{L.accountDetailActivity}</button>
+            <button type="button" className="ledger-pill ledger-pill-secondary" onClick={() => onActivity(windowFrom, todayIso())}>{L.accountDetailActivity}</button>
         </>
     );
 }
@@ -2433,6 +2823,7 @@ function EntryForm({
     onChange,
     onSave,
     onDelete,
+    onRefund,
     onBack,
 }: {
     L: Copy;
@@ -2444,9 +2835,15 @@ function EntryForm({
     onChange: (draft: EntryDraft) => void;
     onSave: () => void;
     onDelete: () => void;
+    onRefund: () => void;
     onBack: () => void;
 }) {
-    const amountOk = Number(draft.amount) > 0;
+    const solved = solveMoney(draft.amount);
+    const otherSolved = solveMoney(draft.otherAmount);
+    const amountOk = solved != null && solved > 0 && (!draft.splitOn || (otherSolved != null && otherSolved > 0));
+    const refunded = draft.id ? book.entries.some((entry) => entry.refundOf === draft.id) : false;
+    const source = book.entries.find((entry) => entry.id === draft.id);
+    const accounts = openAccountList(book.accounts, draft.accountId);
     return (
         <>
             <SubpageHead L={L} title={draft.id ? L.entryEdit : L.entryNew} onBack={onBack} />
@@ -2456,6 +2853,13 @@ function EntryForm({
             </div>
             <label className="ledger-label" htmlFor="entry-amount">{L.amount}</label>
             <input id="entry-amount" className="ledger-field" inputMode="decimal" value={draft.amount} placeholder="0.00" onChange={(event) => onChange({ ...draft, amount: event.target.value })} />
+            <div className="ledger-math">
+                <button type="button" onClick={() => onChange({ ...draft, amount: `${draft.amount}+` })}>+</button>
+                <button type="button" onClick={() => onChange({ ...draft, amount: `${draft.amount}-` })}>−</button>
+                {showsSolve(draft.amount) && (
+                    <button type="button" className="is-solve" onClick={() => onChange({ ...draft, amount: solved == null ? draft.amount : solved.toFixed(2) })}>{L.amountSolve}</button>
+                )}
+            </div>
             <label className="ledger-label" htmlFor="entry-title">{L.name}</label>
             <input id="entry-title" className="ledger-field" value={draft.title} placeholder={L.namePh} onChange={(event) => onChange({ ...draft, title: event.target.value })} />
             {titleSuggestions.length > 0 && (
@@ -2474,11 +2878,33 @@ function EntryForm({
                     <button key={name} type="button" className={draft.category === name ? 'is-on' : ''} onClick={() => onChange({ ...draft, category: name })}>{name}</button>
                 ))}
             </div>
+            {!draft.id && (
+                <label className="ledger-check">
+                    <input type="checkbox" checked={draft.splitOn} onChange={(event) => onChange({ ...draft, splitOn: event.target.checked })} />
+                    {L.splitMark}
+                </label>
+            )}
+            {draft.splitOn && !draft.id && (
+                <>
+                    <label className="ledger-label" htmlFor="entry-other">{L.splitAmount}</label>
+                    <input id="entry-other" className="ledger-field" inputMode="decimal" value={draft.otherAmount} placeholder="0.00" onChange={(event) => onChange({ ...draft, otherAmount: event.target.value })} />
+                    <p className="ledger-label">{L.category}</p>
+                    <div className="ledger-chips">
+                        {categories.map((name) => (
+                            <button key={`other-${name}`} type="button" className={draft.otherCategory === name ? 'is-on' : ''} onClick={() => onChange({ ...draft, otherCategory: name })}>{name}</button>
+                        ))}
+                    </div>
+                    <label className="ledger-check">
+                        <input type="checkbox" checked={draft.otherShared} onChange={(event) => onChange({ ...draft, otherShared: event.target.checked })} />
+                        {L.shared}
+                    </label>
+                </>
+            )}
             <label className="ledger-label" htmlFor="entry-date">{L.date}</label>
             <DateField id="entry-date" label={L.date} locale={locale} value={draft.date} max={todayIso()} onChange={(date) => onChange({ ...draft, date })} L={L} />
             <label className="ledger-label" htmlFor="entry-account">{L.account}</label>
-            {book.accounts.length > 0 ? (
-                <ChoiceMenu id="entry-account" label={L.account} value={draft.accountId} options={book.accounts.map((account) => ({ value: account.id, label: account.name }))} onChange={(accountId) => onChange({ ...draft, accountId })} />
+            {accounts.length > 0 ? (
+                <ChoiceMenu id="entry-account" label={L.account} value={draft.accountId} options={accounts.map((account) => ({ value: account.id, label: account.name }))} onChange={(accountId) => onChange({ ...draft, accountId })} />
             ) : (
                 <input id="entry-account" className="ledger-field" value={draft.accountName} onChange={(event) => onChange({ ...draft, accountName: event.target.value })} />
             )}
@@ -2486,6 +2912,17 @@ function EntryForm({
                 <input type="checkbox" checked={draft.shared} onChange={(event) => onChange({ ...draft, shared: event.target.checked })} />
                 {L.shared}
             </label>
+            {draft.direction === 'out' && !draft.splitOn && book.goals.length > 0 && (
+                <>
+                    <p className="ledger-label">{L.goalAttach}</p>
+                    <div className="ledger-chips">
+                        <button type="button" className={draft.goalId === '' ? 'is-on' : ''} onClick={() => onChange({ ...draft, goalId: '' })}>{L.goalNone}</button>
+                        {book.goals.map((goal) => (
+                            <button key={goal.id} type="button" className={draft.goalId === goal.id ? 'is-on' : ''} onClick={() => onChange({ ...draft, goalId: goal.id })}>{goal.title}</button>
+                        ))}
+                    </div>
+                </>
+            )}
             {draft.direction === 'out' && (
                 <label className="ledger-check">
                     <input
@@ -2497,6 +2934,11 @@ function EntryForm({
                 </label>
             )}
             <button type="button" className="ledger-pill" onClick={onSave} disabled={!draft.title.trim() || !amountOk}>{L.save}</button>
+            {source && source.direction === 'out' && !source.refundOf && (
+                refunded
+                    ? <p className="ledger-refund-done">{L.refundDone}</p>
+                    : <button type="button" className="ledger-pill ledger-pill-secondary" onClick={onRefund}>{L.refundMark}</button>
+            )}
             {draft.id && <button type="button" className="ledger-text-button" onClick={onDelete}>{L.deleteEntry}</button>}
         </>
     );
