@@ -1678,6 +1678,7 @@ export default function LedgerApp() {
                     {panel === 'accountDetail' && viewingAccount && (
                         <AccountDetailView
                             L={L}
+                            locale={locale}
                             account={viewingAccount}
                             entries={book.entries}
                             mark={mark}
@@ -2722,6 +2723,7 @@ function HoldingDetailView({
 
 function AccountDetailView({
     L,
+    locale,
     account,
     entries,
     mark,
@@ -2730,6 +2732,7 @@ function AccountDetailView({
     onActivity,
 }: {
     L: Copy;
+    locale: Locale;
     account: Account;
     entries: Entry[];
     mark: string;
@@ -2745,12 +2748,13 @@ function AccountDetailView({
     const flow = accountPeriodFlow(account.id, entries, windowFrom, todayIso());
     const series = netWorthSeries([account], entries, [], windowDays);
     const cycle = cardCycle(account, entries);
+    const up = delta >= 0;
 
     return (
         <>
             <SubpageHead L={L} title={account.name} onBack={onBack} />
-            <article className="ledger-card">
-                <p className="ledger-settings-label">{accountKindLabel(L, normalizeAccountKind(account.kind))}</p>
+            <article className="ledger-net-card">
+                <p>{accountKindLabel(L, normalizeAccountKind(account.kind))}</p>
                 <MoneyAmount value={total} mark={mark} size="hero" />
                 <div className="ledger-segment" role="tablist" aria-label={L.accountsTrend}>
                     {([
@@ -2760,24 +2764,27 @@ function AccountDetailView({
                         <button key={days} type="button" role="tab" aria-selected={windowDays === days} className={windowDays === days ? 'is-on' : ''} onClick={() => setWindowDays(days)}>{label}</button>
                     ))}
                 </div>
-                <p className="ledger-account-detail-meta">
+                <SpendLine L={L} points={series} active="" fitRange />
+                <p className="ledger-net-foot">
                     <span>{L.accountPeriodDelta}</span>
-                    <span className={delta >= 0 ? 'ledger-tone-up' : 'ledger-tone-down'}>
-                        <MoneyAmount value={delta} mark={mark} size="sm" signed />
-                        {' '}
-                        {formatPct(delta, prior)}
-                    </span>
+                    <span className="ledger-detail-amt"><MoneyAmount value={delta} mark={mark} size="sm" signed /></span>
+                    <span className={up ? 'ledger-detail-pct is-up' : 'ledger-detail-pct is-down'}>{formatPct(delta, prior)}</span>
                 </p>
-                <p className="ledger-account-detail-meta">
-                    {L.accountPeriodNet}{' '}
-                    <MoneyAmount value={flow.net} mark={mark} size="sm" signed />
-                    <span className="ledger-account-detail-flow">
-                        · {L.periodIncome} <MoneyAmount value={flow.inflow} mark={mark} size="sm" />
-                        {' · '}{L.periodSpend} <MoneyAmount value={flow.outflow} mark={mark} size="sm" />
-                    </span>
-                </p>
-                <SpendLine L={L} points={series} active="" />
             </article>
+            <button type="button" className="ledger-detail-flow" onClick={() => onActivity(windowFrom, todayIso())}>
+                <span>
+                    <b>{L.periodSpend}</b>
+                    <MoneyAmount value={flow.outflow} mark={mark} size="sm" />
+                </span>
+                <span>
+                    <b>{L.periodIncome}</b>
+                    <MoneyAmount value={flow.inflow} mark={mark} size="sm" />
+                </span>
+                <span className={flow.net >= 0 ? 'is-up' : 'is-down'}>
+                    <b>{L.accountPeriodNet}</b>
+                    <MoneyAmount value={flow.net} mark={mark} size="sm" signed />
+                </span>
+            </button>
             {cycle && (
                 <button type="button" className="ledger-card ledger-bill" onClick={() => onActivity(cycle.start, cycle.end)}>
                     <span className="ledger-bill-head">
@@ -2785,8 +2792,8 @@ function AccountDetailView({
                         <span aria-hidden="true">›</span>
                     </span>
                     <MoneyAmount value={cycle.spent} mark={mark} size="md" />
-                    <p className="ledger-account-meta">{L.cardDueDay} {cycle.due}</p>
-                    <p className="ledger-account-meta">{cycle.start} – {cycle.end}</p>
+                    <p>{L.cardDueDay} {dayLabel(cycle.due, locale, L)}</p>
+                    <p>{dayLabel(cycle.start, locale, L)} – {dayLabel(cycle.end, locale, L)}</p>
                 </button>
             )}
             <button type="button" className="ledger-pill" onClick={onEdit}>{L.editAccount}</button>

@@ -140,7 +140,24 @@
 }
 
 .ledger-bill .ledger-money {
+  display: block;
+  margin-top: 8px;
   color: #e85d75;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.ledger-bill p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ledger-bill p + p {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--faint);
 }
 
 .ledger-phone {
@@ -431,10 +448,93 @@
   flex-wrap: wrap;
   gap: 0.35em;
   align-items: baseline;
-  margin-top: 10px;
+  margin-top: 8px;
   font-size: 13px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.62);
+}
+
+.ledger-net-card .ledger-segment {
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ledger-net-card .ledger-segment button {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.ledger-net-card .ledger-segment button.is-on {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.ledger-net-card .ledger-line {
+  margin-top: 12px;
+}
+
+.ledger-detail-amt,
+.ledger-detail-amt .ledger-money,
+.ledger-detail-amt .ledger-money-mark,
+.ledger-detail-amt .ledger-money-value,
+.ledger-detail-amt .ledger-money-sign {
+  color: #fff;
+}
+
+.ledger-detail-pct.is-up {
+  color: #8ee4b0;
+}
+
+.ledger-detail-pct.is-down {
+  color: var(--pink);
+}
+
+.ledger-detail-flow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ledger-detail-flow > span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ledger-detail-flow b {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ledger-detail-flow .ledger-money {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ledger-detail-flow > span:first-child {
+  color: #e85d75;
+}
+
+.ledger-detail-flow > span:nth-child(2) {
+  color: #2f9e62;
+}
+
+.ledger-detail-flow > span.is-up {
+  color: #2f9e62;
+}
+
+.ledger-detail-flow > span.is-down {
+  color: #e85d75;
 }
 
 .ledger-panel {
