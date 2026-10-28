@@ -1615,6 +1615,86 @@ button.ledger-card.ledger-profile {
   font-weight: 800;
 }
 
+.ledger-export-stats {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr 1px 1fr;
+  align-items: center;
+  margin-top: 16px;
+  padding: 16px 8px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.ledger-export-stats button {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ledger-export-stats b {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.ledger-export-stats span {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ledger-export-rule {
+  width: 1px;
+  height: 36px;
+  background: var(--line);
+}
+
+.ledger-export-file {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-export-mark {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--pink);
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ledger-export-file b {
+  display: block;
+  font-size: 16px;
+}
+
+.ledger-export-file p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
 .ledger-export-card {
   margin-top: 16px;
   padding: 4px 16px;

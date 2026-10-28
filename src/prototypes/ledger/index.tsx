@@ -55,7 +55,7 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'language' | 'currency' | 'categories' | 'worth' | 'removed';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'language' | 'currency' | 'categories' | 'worth' | 'removed' | 'export';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30;
@@ -1705,6 +1705,34 @@ export default function LedgerApp() {
                             <button type="button" className="ledger-pill" onClick={saveProfile} disabled={!draftName.trim()}>{L.save}</button>
                         </>
                     )}
+                    {panel === 'export' && (
+                        <>
+                            <SubpageHead L={L} title={L.dataManage} onBack={() => setPanel('none')} />
+                            <div className="ledger-export-stats">
+                                <button type="button" onClick={() => goTab('transactions')}>
+                                    <b>{book.entries.length}</b>
+                                    <span>{L.transactions}</span>
+                                </button>
+                                <div className="ledger-export-rule" role="presentation" />
+                                <button type="button" onClick={() => goTab('accounts')}>
+                                    <b>{book.accounts.length}</b>
+                                    <span>{L.tabAccounts}</span>
+                                </button>
+                                <div className="ledger-export-rule" role="presentation" />
+                                <button type="button" onClick={() => goTab('accounts')}>
+                                    <b>{(book.holdings ?? []).length}</b>
+                                    <span>{L.holdingsLabel}</span>
+                                </button>
+                            </div>
+                            <button type="button" className="ledger-export-file" onClick={exportBookFile}>
+                                <span className="ledger-export-mark" aria-hidden="true">↑</span>
+                                <span>
+                                    <b>{L.exportBackup}</b>
+                                    <p>{L.dataExportNote}</p>
+                                </span>
+                            </button>
+                        </>
+                    )}
                     {panel === 'privacy' && (
                         <div className="ledger-privacy">
                             <SubpageHead L={L} title={L.privacy} onBack={() => setPanel('none')} />
@@ -2202,7 +2230,7 @@ export default function LedgerApp() {
                             </section>
                             <section className="ledger-card ledger-settings">
                                 <h2 className="ledger-settings-kicker">{L.meData}</h2>
-                                <SettingsLink title={L.exportData} onClick={exportBookFile} />
+                                <SettingsLink title={L.exportData} onClick={() => setPanel('export')} />
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.importData} onClick={() => importFileRef.current?.click()} />
                                 <div className="ledger-settings-divider" role="presentation" />
