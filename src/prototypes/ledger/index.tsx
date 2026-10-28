@@ -722,7 +722,7 @@ function blankEntry(book: Book): EntryDraft {
 }
 
 export default function LedgerApp() {
-    const { page, setPage } = useHashPage(route);
+    const { page, setPage: setPageHash } = useHashPage(route);
     const resolved = (legacyPage[page] ?? page) as PageId;
     const [book, setBook] = useState<Book>(emptyBook);
     const locale = normalizeLocale(book.locale);
@@ -731,8 +731,12 @@ export default function LedgerApp() {
     const active = tabs.some((tab) => tab.id === resolved) ? resolved : 'dashboard';
 
     const [ready, setReady] = useState(false);
+    const [opening, setOpening] = useState(true);
+    const [openingOut, setOpeningOut] = useState(false);
     const [scope, setScope] = useState<Scope>('mine');
-    const [panel, setPanel] = useState<Panel>('none');
+    const [panel, setPanelState] = useState<Panel>('none');
+    const [pageMotion, setPageMotion] = useState<'forward' | 'back' | 'fade'>('fade');
+    const pageMotionRef = useRef<'forward' | 'back' | 'fade'>('fade');
     const [clearAsk, setClearAsk] = useState(false);
     const [importAsk, setImportAsk] = useState(false);
     const [pendingImport, setPendingImport] = useState<Partial<Book> | null>(null);
@@ -789,6 +793,16 @@ export default function LedgerApp() {
         setBook(loadBook());
         setReady(true);
     }, []);
+
+    useEffect(() => {
+        if (!ready) return;
+        const hold = window.setTimeout(() => setOpeningOut(true), 2200);
+        const gone = window.setTimeout(() => setOpening(false), 2520);
+        return () => {
+            window.clearTimeout(hold);
+            window.clearTimeout(gone);
+        };
+    }, [ready]);
 
     useEffect(() => {
         if (ready) saveBook(book);
@@ -1498,14 +1512,37 @@ export default function LedgerApp() {
         setPage('transactions');
     }
 
+    function setPanel(next: Panel) {
+        const motion = next === 'none' ? 'back' : 'forward';
+        pageMotionRef.current = motion;
+        setPageMotion(motion);
+        setPanelState(next);
+    }
+
+    function setPage(id: PageId) {
+        if (pageMotionRef.current !== 'back') {
+            pageMotionRef.current = 'fade';
+            setPageMotion('fade');
+        }
+        setPageHash(id);
+    }
+
     const showFab = panel === 'none' && (active === 'dashboard' || active === 'transactions');
 
     return (
         <AmountsHidden.Provider value={book.hideAmounts === true}>
         <main className="ledger">
             <section className="ledger-phone">
+                {opening && (
+                    <div className={`ledger-opening${openingOut ? ' is-out' : ''}`}>
+                        <div className="ledger-opening-mark" aria-hidden />
+                        <p className="ledger-opening-name">SpendLogBook</p>
+                        <p className="ledger-opening-line">{L.splashLine}</p>
+                        <span className="ledger-opening-spin" aria-hidden />
+                    </div>
+                )}
                 <div className="ledger-stage">
-                <div className={`ledger-body${showFab ? '' : ' is-rest'}${panel === 'privacy' ? ' is-privacy' : ''}`}>
+                <div key={`${active}-${panel}`} className={`ledger-body is-${pageMotion}${showFab ? '' : ' is-rest'}${panel === 'privacy' ? ' is-privacy' : ''}`}>
                     {panel === 'entry' && (
                         <EntryForm
                             L={L}

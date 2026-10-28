@@ -250,6 +250,7 @@ const zh = {
     claimDone: '已报销',
     claimEmpty: '把一笔支出标成待报销。到账后点这里，同样的金额会记回账户。',
     claimBack: '{title} 报销',
+    splashLine: '从容入账 · 本机私密 · 账目清楚',
 };
 
 const en: typeof zh = {
@@ -501,6 +502,7 @@ const en: typeof zh = {
     claimDone: 'Reimbursed',
     claimEmpty: 'Mark an expense as waiting. When the money arrives, tap here and the same amount is posted back.',
     claimBack: '{title} reimbursed',
+    splashLine: 'Quiet entries · On-device privacy · Clear accounts',
 };
 
 export const localeChoices: { id: Locale; title: string }[] = [
