@@ -84,6 +84,13 @@
   background: var(--pink);
 }
 
+.ledger-math button:disabled {
+  border-color: var(--line);
+  background: var(--neutral);
+  color: var(--faint);
+  cursor: default;
+}
+
 .ledger-refund-done {
   margin: 8px 0 0;
   padding: 12px;

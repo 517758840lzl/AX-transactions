@@ -245,8 +245,13 @@ function openAccountList(accounts: Account[], keeping = '') {
     return accounts.filter((account) => account.archived !== true || account.id === keeping);
 }
 
+function canAppendMark(raw: string) {
+    const value = solveMoney(raw);
+    return value != null && value > 0;
+}
+
 function showsSolve(raw: string) {
-    return /[+\-＋－−]/.test(raw) && solveMoney(raw) != null;
+    return /[+\-＋－−]/.test(raw) && canAppendMark(raw);
 }
 
 function cardCycle(account: Account, entries: Entry[]) {
@@ -2943,11 +2948,9 @@ function EntryForm({
             <label className="ledger-label" htmlFor="entry-amount">{L.amount}</label>
             <input id="entry-amount" className="ledger-field" inputMode="decimal" value={draft.amount} placeholder="0.00" onChange={(event) => onChange({ ...draft, amount: event.target.value })} />
             <div className="ledger-math">
-                <button type="button" onClick={() => onChange({ ...draft, amount: `${draft.amount}+` })}>+</button>
-                <button type="button" onClick={() => onChange({ ...draft, amount: `${draft.amount}-` })}>−</button>
-                {showsSolve(draft.amount) && (
-                    <button type="button" className="is-solve" onClick={() => onChange({ ...draft, amount: solved == null ? draft.amount : solved.toFixed(2) })}>{L.amountSolve}</button>
-                )}
+                <button type="button" disabled={!canAppendMark(draft.amount)} onClick={() => onChange({ ...draft, amount: `${draft.amount}+` })}>+</button>
+                <button type="button" disabled={!canAppendMark(draft.amount)} onClick={() => onChange({ ...draft, amount: `${draft.amount}-` })}>−</button>
+                <button type="button" className="is-solve" disabled={!showsSolve(draft.amount)} onClick={() => onChange({ ...draft, amount: solved == null ? draft.amount : solved.toFixed(2) })}>{L.amountSolve}</button>
             </div>
             <label className="ledger-label" htmlFor="entry-title">{L.name}</label>
             <input id="entry-title" className="ledger-field" value={draft.title} placeholder={L.namePh} onChange={(event) => onChange({ ...draft, title: event.target.value })} />
