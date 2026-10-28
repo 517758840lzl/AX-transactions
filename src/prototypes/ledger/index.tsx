@@ -125,8 +125,8 @@ function yearColumns(entries: Entry[], year: number) {
         const month = index + 1;
         const prefix = `${year}-${`${month}`.padStart(2, '0')}`;
         const rows = entries.filter((entry) => entry.date.startsWith(prefix));
-        const spend = rows.filter((entry) => entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0);
-        const income = rows.filter((entry) => entry.direction === 'in').reduce((sum, entry) => sum + entry.amount, 0);
+        const spend = rows.filter((entry) => isSpend(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+        const income = rows.filter((entry) => isIncome(entry)).reduce((sum, entry) => sum + entry.amount, 0);
         return { month, spend, income };
     });
 }
@@ -278,6 +278,25 @@ function countsInBudget(entry: Entry) {
     return entry.countsInBudget !== false;
 }
 
+function isTransfer(entry: Entry) {
+    return entry.id.startsWith('transfer-');
+}
+
+function transferMate(id: string) {
+    if (!id.startsWith('transfer-')) return '';
+    if (id.endsWith('-in')) return `${id.slice(0, -3)}-out`;
+    if (id.endsWith('-out')) return `${id.slice(0, -4)}-in`;
+    return '';
+}
+
+function isSpend(entry: Entry) {
+    return entry.direction === 'out' && !isTransfer(entry);
+}
+
+function isIncome(entry: Entry) {
+    return entry.direction === 'in' && !isTransfer(entry);
+}
+
 function accountsWindowStart(days: number) {
     const cursor = new Date();
     cursor.setDate(cursor.getDate() - (days - 1));
@@ -368,7 +387,7 @@ function detectRecurring(entries: Entry[]) {
     const minIso = isoDate(cutoff);
     const groups = new Map<string, { title: string; amount: number; dates: string[]; sample: Entry }>();
     for (const entry of entries) {
-        if (entry.direction !== 'out' || entry.date < minIso) continue;
+        if (!isSpend(entry) || entry.date < minIso) continue;
         const key = `${entry.title.trim()}|${entry.amount}`;
         const node = groups.get(key) ?? { title: entry.title, amount: entry.amount, dates: [], sample: entry };
         if (!node.dates.includes(entry.date)) node.dates.push(entry.date);
@@ -784,25 +803,27 @@ export default function LedgerApp() {
     const balance = bookNetWorth(book.accounts, book.entries, book.holdings ?? []);
     const monthKey = todayIso().slice(0, 7);
     const monthEntries = visibleEntries.filter((entry) => entry.date.startsWith(monthKey));
-    const monthOut = monthEntries.filter((entry) => entry.direction === 'out' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0);
-    const monthIn = monthEntries.filter((entry) => entry.direction === 'in' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const refundedIds = new Set(book.entries.flatMap((entry) => (entry.refundOf ? [entry.refundOf] : [])));
+    const monthOut = monthEntries.filter((entry) => isSpend(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const monthIn = monthEntries.filter((entry) => isIncome(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const budgetSpent = monthEntries.filter((entry) => isSpend(entry) && countsInBudget(entry) && !refundedIds.has(entry.id)).reduce((sum, entry) => sum + entry.amount, 0);
     const monthSpend = eachDay(monthBounds(0).start, todayIso()).map((day) => ({
         day,
-        amount: visibleEntries.filter((entry) => entry.date === day && entry.direction === 'out' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0),
+        amount: visibleEntries.filter((entry) => entry.date === day && isSpend(entry)).reduce((sum, entry) => sum + entry.amount, 0),
     }));
     const reviewQueue = [...visibleEntries].filter((entry) => !entry.checked).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
     const bounds = periodBounds(periodMode, rangeFrom, rangeTo);
     const periodEntries = visibleEntries.filter((entry) => entry.date >= bounds.start && entry.date <= bounds.end);
-    const periodOut = periodEntries.filter((entry) => entry.direction === 'out' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0);
-    const periodIn = periodEntries.filter((entry) => entry.direction === 'in' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0);
-    const spendParts = [...new Set(periodEntries.filter((entry) => entry.direction === 'out' && countsInBudget(entry)).map((entry) => entry.category))].map((name, index) => ({
+    const periodOut = periodEntries.filter((entry) => isSpend(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const periodIn = periodEntries.filter((entry) => isIncome(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const spendParts = [...new Set(periodEntries.filter((entry) => isSpend(entry)).map((entry) => entry.category))].map((name, index) => ({
         name,
-        amount: periodEntries.filter((entry) => entry.category === name && entry.direction === 'out' && countsInBudget(entry)).reduce((sum, entry) => sum + entry.amount, 0),
+        amount: periodEntries.filter((entry) => entry.category === name && isSpend(entry)).reduce((sum, entry) => sum + entry.amount, 0),
         color: sliceColors[index % sliceColors.length],
     })).filter((item) => item.amount > 0);
-    const monthCategoryParts = [...new Set(monthEntries.filter((entry) => entry.direction === 'out').map((entry) => entry.category))].map((name, index) => ({
+    const monthCategoryParts = [...new Set(monthEntries.filter((entry) => isSpend(entry)).map((entry) => entry.category))].map((name, index) => ({
         name,
-        amount: monthEntries.filter((entry) => entry.category === name && entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0),
+        amount: monthEntries.filter((entry) => entry.category === name && isSpend(entry)).reduce((sum, entry) => sum + entry.amount, 0),
         color: sliceColors[index % sliceColors.length],
     })).filter((item) => item.amount > 0);
     const query = search.trim().toLowerCase();
@@ -840,7 +861,7 @@ export default function LedgerApp() {
     const prevMonthOutByCategory = useMemo(() => {
         const map = new Map<string, number>();
         for (const entry of visibleEntries) {
-            if (entry.direction !== 'out') continue;
+            if (!isSpend(entry)) continue;
             if (entry.date < prevMonth.start || entry.date > prevMonth.end) continue;
             map.set(entry.category, (map.get(entry.category) ?? 0) + entry.amount);
         }
@@ -856,18 +877,18 @@ export default function LedgerApp() {
     const loggedToday = book.entries.some((entry) => entry.date === todayIso());
     const monthBalance = monthIn - monthOut;
     const budget = book.monthlyBudget;
-    const budgetLeft = budget != null ? budget - monthOut : null;
+    const budgetLeft = budget != null ? budget - budgetSpent : null;
     const safeDaily = budgetLeft != null ? budgetLeft / daysLeftInMonth() : null;
     const nowDay = new Date().getDate();
     const monthDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-    const paceOver = budget != null && budget > 0 && nowDay > 0 && (monthOut / nowDay) * monthDays > budget;
+    const paceOver = budget != null && budget > 0 && nowDay > 0 && (budgetSpent / nowDay) * monthDays > budget;
     const recurringItems = useMemo(() => detectRecurring(book.entries), [book.entries]);
     const yearBars = useMemo(() => yearColumns(visibleEntries, reportYear), [visibleEntries, reportYear]);
     const waitingClaims = visibleEntries.filter((entry) => normalizeClaim(entry.claim) === 'waiting' && entry.direction === 'out');
     const spendByDay = useMemo(() => {
         const map = new Map<string, number>();
         for (const entry of periodEntries) {
-            if (entry.direction !== 'out') continue;
+            if (!isSpend(entry)) continue;
             map.set(entry.date, (map.get(entry.date) ?? 0) + entry.amount);
         }
         return map;
@@ -1163,7 +1184,22 @@ export default function LedgerApp() {
     }
 
     function removeAccount(id: string) {
-        setBook({ ...book, accounts: book.accounts.filter((item) => item.id !== id), entries: book.entries.filter((entry) => entry.accountId !== id) });
+        const gone = new Set(book.entries.filter((entry) => entry.accountId === id).map((entry) => entry.id));
+        for (const entryId of [...gone]) {
+            const mate = transferMate(entryId);
+            if (mate) gone.add(mate);
+        }
+        const taken = book.entries.filter((entry) => gone.has(entry.id));
+        const removed = [
+            ...taken.map((entry) => ({ entry, removedOn: todayIso() })),
+            ...(book.removed ?? []).filter((item) => !gone.has(item.entry.id)),
+        ];
+        setBook({
+            ...book,
+            accounts: book.accounts.filter((item) => item.id !== id),
+            entries: book.entries.filter((entry) => !gone.has(entry.id)),
+            removed,
+        });
         setViewingAccountId('');
         setPanel('none');
     }
@@ -1852,7 +1888,7 @@ export default function LedgerApp() {
                                             <button type="button" onClick={openBudgetPanel}>{L.edit}</button>
                                         </div>
                                         <div className="ledger-budget-track" aria-hidden="true">
-                                            <span className="ledger-budget-fill" style={{ width: `${Math.min(100, (monthOut / budget) * 100)}%` }} />
+                                            <span className="ledger-budget-fill" style={{ width: `${Math.min(100, (budgetSpent / budget) * 100)}%` }} />
                                         </div>
                                         <p className={`ledger-budget-meta${budgetLeft != null && budgetLeft < 0 ? ' is-over' : ''}`}>
                                             {budgetLeft != null && budgetLeft < 0 ? L.budgetOver : L.budgetRemaining}
