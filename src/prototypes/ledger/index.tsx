@@ -3,6 +3,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import brandMark from './assets/brand-mark.png';
 import { defineHashPageRoute, useHashPage } from '../../common/useHashPage';
 import {
     accountBalanceOnDate,
@@ -1540,7 +1541,9 @@ export default function LedgerApp() {
             <section className="ledger-phone">
                 {opening && (
                     <div className={`ledger-opening${openingOut ? ' is-out' : ''}`}>
-                        <div className="ledger-opening-mark" aria-hidden />
+                        <div className="ledger-opening-mark" aria-hidden>
+                            <img src={brandMark} alt="" />
+                        </div>
                         <p className="ledger-opening-name">SpendLogBook</p>
                         <p className="ledger-opening-line">{L.splashLine}</p>
                         <span className="ledger-opening-spin" aria-hidden />
@@ -1619,14 +1622,12 @@ export default function LedgerApp() {
                             </div>
                             <label className="ledger-label" htmlFor="account-opening">{L.accountBalance}</label>
                             <input id="account-opening" className="ledger-field" inputMode="decimal" value={accountOpening} placeholder="0.00" onChange={(event) => setAccountOpening(event.target.value)} />
-                            {accountKind === 'card' && (
-                                <>
-                                    <label className="ledger-label" htmlFor="account-statement">{L.cardStatementDay}</label>
-                                    <input id="account-statement" className="ledger-field" inputMode="numeric" value={statementDay} placeholder="1–28" onChange={(event) => setStatementDay(event.target.value)} />
-                                    <label className="ledger-label" htmlFor="account-due">{L.cardDueDay}</label>
-                                    <input id="account-due" className="ledger-field" inputMode="numeric" value={dueDay} placeholder="1–28" onChange={(event) => setDueDay(event.target.value)} />
-                                </>
-                            )}
+                            <Fold open={accountKind === 'card'}>
+                                <label className="ledger-label" htmlFor="account-statement">{L.cardStatementDay}</label>
+                                <input id="account-statement" className="ledger-field" inputMode="numeric" value={statementDay} placeholder="1–28" onChange={(event) => setStatementDay(event.target.value)} />
+                                <label className="ledger-label" htmlFor="account-due">{L.cardDueDay}</label>
+                                <input id="account-due" className="ledger-field" inputMode="numeric" value={dueDay} placeholder="1–28" onChange={(event) => setDueDay(event.target.value)} />
+                            </Fold>
                             <button type="button" className="ledger-pill" onClick={() => saveAccount()} disabled={!accountName.trim() || accountOpening.trim() === '' || Number.isNaN(Number(accountOpening))}>{L.save}</button>
                             {editingAccountId && (
                                 <button type="button" className="ledger-pill ledger-pill-secondary" onClick={() => saveAccount(!accountArchived)}>{accountArchived ? L.restoreAccount : L.archiveAccount}</button>
@@ -2093,7 +2094,7 @@ export default function LedgerApp() {
                                     </div>
                                 </section>
                             )}
-                            {txView === 'calendar' && (
+                            <Fold open={txView === 'calendar'}>
                                 <SpendCalendar
                                     L={L}
                                     locale={locale}
@@ -2102,7 +2103,7 @@ export default function LedgerApp() {
                                     selected={calendarDay || bounds.end}
                                     onSelect={(day) => { setCalendarDay(day); chooseDayRange(day); }}
                                 />
-                            )}
+                            </Fold>
                             <section className="ledger-panel">
                                 <div className="ledger-panel-head">
                                     <h2>{txView === 'calendar' && calendarDay ? dayLabel(calendarDay, locale, L) : periodLabel}</h2>
@@ -2409,7 +2410,6 @@ function SpendCalendar({
     const year = anchor.getFullYear();
     const month = anchor.getMonth();
     const cells = calendarCells(year, month);
-    const maxSpend = Math.max(...cells.map((cell) => (cell.iso ? spendByDay.get(cell.iso) ?? 0 : 0)), 1);
     const monthLabel = locale === 'en'
         ? anchor.toLocaleString('en-US', { month: 'long', year: 'numeric' })
         : `${year}年${month + 1}月`;
@@ -2425,16 +2425,12 @@ function SpendCalendar({
                     const iso = cell.iso;
                     if (!iso) return <span key={`pad-${index}`} className="ledger-calendar-pad" />;
                     const spend = spendByDay.get(iso) ?? 0;
-                    const inRange = iso >= bounds.start && iso <= bounds.end;
-                    const intensity = spend > 0 ? Math.max(0.2, spend / maxSpend) : 0;
                     return (
                         <button
                             key={iso}
                             type="button"
                             role="gridcell"
-                            disabled={!inRange}
-                            className={`ledger-calendar-day${selected === iso ? ' is-selected' : ''}${spend > 0 ? ' has-spend' : ''}`}
-                            style={{ '--heat': intensity } as React.CSSProperties}
+                            className={`ledger-calendar-day${selected === iso ? ' is-selected' : ''}`}
                             onClick={() => onSelect(iso)}
                         >
                             <span>{cell.day}</span>
@@ -2862,6 +2858,29 @@ function YearReportPanel({
     );
 }
 
+function Fold({ open, children }: { open: boolean; children: React.ReactNode }) {
+    const [expanded, setExpanded] = useState(open);
+    const skip = useRef(true);
+    useEffect(() => {
+        if (skip.current) {
+            skip.current = false;
+            return;
+        }
+        setExpanded(open);
+    }, [open]);
+    return (
+        <div
+            className={expanded ? 'ledger-fold is-open' : 'ledger-fold'}
+            aria-hidden={expanded ? undefined : true}
+            ref={(node) => {
+                if (node) node.inert = !expanded;
+            }}
+        >
+            <div className="ledger-fold-body">{children}</div>
+        </div>
+    );
+}
+
 function FilterPage({ L, locale, scope, periodMode, rangeFrom, rangeTo, onScope, onToday, onMonth, onRange, onFrom, onTo, onBack }: {
     L: Copy;
     locale: Locale;
@@ -2894,13 +2913,13 @@ function FilterPage({ L, locale, scope, periodMode, rangeFrom, rangeTo, onScope,
                     <button type="button" role="tab" aria-selected={periodMode === 'month'} className={periodMode === 'month' ? 'is-on' : ''} onClick={onMonth}>{L.thisMonth}</button>
                     <button type="button" role="tab" aria-selected={periodMode === 'range'} className={periodMode === 'range' ? 'is-on' : ''} onClick={onRange}>{L.customRange}</button>
                 </div>
-                {periodMode === 'range' && (
+                <Fold open={periodMode === 'range'}>
                     <div className="ledger-dates">
                         <DateField label={L.rangeStart} locale={locale} value={rangeFrom} max={todayIso()} onChange={onFrom} L={L} />
                         <span>{L.rangeTo}</span>
                         <DateField label={L.rangeEnd} locale={locale} value={rangeTo} max={todayIso()} onChange={onTo} L={L} />
                     </div>
-                )}
+                </Fold>
             </section>
             <button type="button" className="ledger-pill" onClick={onBack}>{L.done}</button>
         </>
@@ -2976,22 +2995,20 @@ function EntryForm({
                     {L.splitMark}
                 </label>
             )}
-            {draft.splitOn && !draft.id && (
-                <>
-                    <label className="ledger-label" htmlFor="entry-other">{L.splitAmount}</label>
-                    <input id="entry-other" className="ledger-field" inputMode="decimal" value={draft.otherAmount} placeholder="0.00" onChange={(event) => onChange({ ...draft, otherAmount: event.target.value })} />
-                    <p className="ledger-label">{L.category}</p>
-                    <div className="ledger-chips">
-                        {categories.map((name) => (
-                            <button key={`other-${name}`} type="button" className={draft.otherCategory === name ? 'is-on' : ''} onClick={() => onChange({ ...draft, otherCategory: name })}>{name}</button>
-                        ))}
-                    </div>
-                    <label className="ledger-check">
-                        <input type="checkbox" checked={draft.otherShared} onChange={(event) => onChange({ ...draft, otherShared: event.target.checked })} />
-                        {L.shared}
-                    </label>
-                </>
-            )}
+            <Fold open={draft.splitOn && !draft.id}>
+                <label className="ledger-label" htmlFor="entry-other">{L.splitAmount}</label>
+                <input id="entry-other" className="ledger-field" inputMode="decimal" value={draft.otherAmount} placeholder="0.00" onChange={(event) => onChange({ ...draft, otherAmount: event.target.value })} />
+                <p className="ledger-label">{L.category}</p>
+                <div className="ledger-chips">
+                    {categories.map((name) => (
+                        <button key={`other-${name}`} type="button" className={draft.otherCategory === name ? 'is-on' : ''} onClick={() => onChange({ ...draft, otherCategory: name })}>{name}</button>
+                    ))}
+                </div>
+                <label className="ledger-check">
+                    <input type="checkbox" checked={draft.otherShared} onChange={(event) => onChange({ ...draft, otherShared: event.target.checked })} />
+                    {L.shared}
+                </label>
+            </Fold>
             <label className="ledger-label" htmlFor="entry-date">{L.date}</label>
             <DateField id="entry-date" label={L.date} locale={locale} value={draft.date} max={todayIso()} onChange={(date) => onChange({ ...draft, date })} L={L} />
             <label className="ledger-label" htmlFor="entry-account">{L.account}</label>
@@ -3004,18 +3021,16 @@ function EntryForm({
                 <input type="checkbox" checked={draft.shared} onChange={(event) => onChange({ ...draft, shared: event.target.checked })} />
                 {L.shared}
             </label>
-            {draft.direction === 'out' && !draft.splitOn && book.goals.length > 0 && (
-                <>
-                    <p className="ledger-label">{L.goalAttach}</p>
-                    <div className="ledger-chips">
-                        <button type="button" className={draft.goalId === '' ? 'is-on' : ''} onClick={() => onChange({ ...draft, goalId: '' })}>{L.goalNone}</button>
-                        {book.goals.map((goal) => (
-                            <button key={goal.id} type="button" className={draft.goalId === goal.id ? 'is-on' : ''} onClick={() => onChange({ ...draft, goalId: goal.id })}>{goal.title}</button>
-                        ))}
-                    </div>
-                </>
-            )}
-            {draft.direction === 'out' && (
+            <Fold open={draft.direction === 'out' && !draft.splitOn && book.goals.length > 0}>
+                <p className="ledger-label">{L.goalAttach}</p>
+                <div className="ledger-chips">
+                    <button type="button" className={draft.goalId === '' ? 'is-on' : ''} onClick={() => onChange({ ...draft, goalId: '' })}>{L.goalNone}</button>
+                    {book.goals.map((goal) => (
+                        <button key={goal.id} type="button" className={draft.goalId === goal.id ? 'is-on' : ''} onClick={() => onChange({ ...draft, goalId: goal.id })}>{goal.title}</button>
+                    ))}
+                </div>
+            </Fold>
+            <Fold open={draft.direction === 'out'}>
                 <label className="ledger-check">
                     <input
                         type="checkbox"
@@ -3024,7 +3039,7 @@ function EntryForm({
                     />
                     {draft.claim === 'done' ? L.claimDone : L.claimMark}
                 </label>
-            )}
+            </Fold>
             <button type="button" className="ledger-pill" onClick={onSave} disabled={!draft.title.trim() || !amountOk}>{L.save}</button>
             {source && source.direction === 'out' && !source.refundOf && (
                 refunded

@@ -171,15 +171,22 @@
 }
 
 .ledger-opening-mark {
-  width: 98px;
-  height: 98px;
-  border-radius: 22px;
-  background: #fff;
-  border: 1px solid var(--line);
+  width: 112px;
+  height: 112px;
+  border-radius: 26px;
+  overflow: hidden;
+  background: transparent;
   box-shadow: 0 0 36px rgba(232, 93, 117, 0.35);
   animation:
     ledger-opening-mark 2.2s cubic-bezier(0.22, 0.9, 0.28, 1) both,
     ledger-opening-glow 1.4s ease-in-out infinite;
+}
+
+.ledger-opening-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .ledger-opening-name,
@@ -288,6 +295,38 @@
 @keyframes ledger-page-fade {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+.ledger-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  pointer-events: none;
+  transition: grid-template-rows 0.26s cubic-bezier(0.22, 0.9, 0.28, 1) 0.12s;
+}
+
+.ledger-fold.is-open {
+  grid-template-rows: 1fr;
+  pointer-events: auto;
+  transition: grid-template-rows 0.26s cubic-bezier(0.22, 0.9, 0.28, 1);
+}
+
+.ledger-fold-body {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.ledger-fold.is-open .ledger-fold-body {
+  opacity: 1;
+  transition: opacity 0.32s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ledger-fold,
+  .ledger-fold.is-open {
+    transition: none;
+  }
 }
 
 .ledger-body.is-rest {
@@ -1434,6 +1473,10 @@ select.ledger-field:focus {
   margin-top: 10px;
 }
 
+.ledger-tx-view button {
+  transition: none;
+}
+
 .ledger-calendar h2 {
   margin: 0 0 10px;
   font-size: 15px;
@@ -1461,13 +1504,13 @@ select.ledger-field:focus {
 }
 
 .ledger-calendar-day {
-  min-height: 42px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  background: rgba(255, 179, 199, calc(var(--heat, 0) * 0.35));
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   font: inherit;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
   cursor: pointer;
   display: flex;
@@ -1478,20 +1521,19 @@ select.ledger-field:focus {
   padding: 4px;
 }
 
-.ledger-calendar-day:disabled {
-  opacity: 0.28;
-  cursor: default;
-}
-
 .ledger-calendar-day.is-selected {
-  border-color: var(--ink);
-  box-shadow: 0 0 0 1px var(--ink);
+  background: var(--pink);
+  color: var(--ink);
 }
 
 .ledger-calendar-day i {
   width: 4px;
   height: 4px;
   border-radius: 50%;
+  background: var(--pink);
+}
+
+.ledger-calendar-day.is-selected i {
   background: #e85d75;
 }
 
@@ -2227,8 +2269,8 @@ button.ledger-choice-trigger {
 }
 
 .ledger-date-grid button.is-on {
-  background: var(--ink);
-  color: #fff;
+  background: var(--pink);
+  color: var(--ink);
 }
 
 .ledger-date-grid button:disabled {
