@@ -375,9 +375,9 @@
 }
 
 .ledger-filter-row button.is-on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #fff;
+  background: var(--pink);
+  border-color: var(--pink);
+  color: var(--ink);
 }
 
 .ledger-tx-list {
@@ -934,9 +934,9 @@ select.ledger-field:focus {
 }
 
 .ledger-choice-row button.is-on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #fff;
+  background: var(--pink);
+  border-color: var(--pink);
+  color: var(--ink);
 }
 
 .ledger-choice-row--3 button {
@@ -1226,6 +1226,12 @@ select.ledger-field:focus {
   color: var(--muted);
 }
 
+.ledger-row-trail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .ledger-export-note {
   margin: 8px 0 0;
   font-size: 12px;
@@ -1371,6 +1377,13 @@ button.ledger-card.ledger-profile {
   padding: 4px 0;
 }
 
+.ledger-settings-kicker {
+  margin: 2px 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .ledger-settings-divider {
   height: 1px;
   margin: 4px 0;
@@ -1429,7 +1442,7 @@ button.ledger-card.ledger-profile {
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 26px;
 }
 
 .ledger-add-row {
@@ -1791,4 +1804,194 @@ button.ledger-choice-trigger {
 .ledger-choice-pop button.is-on {
   background: var(--wash);
   font-weight: 700;
+}
+
+.ledger-year-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ledger-year-entry .ledger-panel-head {
+  margin: 0;
+}
+
+.ledger-year-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ledger-year-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ledger-year-nav button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+}
+
+.ledger-year-nav button:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.ledger-year-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-height: 168px;
+  margin-bottom: 16px;
+}
+
+.ledger-year-col {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ledger-year-pair {
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.ledger-year-bar {
+  display: block;
+  width: 6px;
+  border-radius: 3px;
+  min-height: 4px;
+}
+
+.ledger-year-bar.is-spend { background: #c45c6a; }
+.ledger-year-bar.is-income { background: #2f9e62; }
+.ledger-year-bar.is-empty { background: var(--line); }
+
+.ledger-year-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 14px;
+  margin-bottom: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ledger-goal-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 8px 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.ledger-goal-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ledger-goal-meta b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-goal-slash,
+.ledger-goal-cap {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.ledger-claim-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.ledger-claim-main {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.ledger-claim-main b {
+  display: block;
+  font-size: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-claim-main span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ledger-claim-paid {
+  border: 0;
+  background: var(--pink);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
 }

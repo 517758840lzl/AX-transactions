@@ -2,7 +2,7 @@
  * @name SpendLogBook
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { defineHashPageRoute, useHashPage } from '../../common/useHashPage';
 import {
     accountBalanceOnDate,
@@ -26,7 +26,9 @@ import {
     emptyBook,
     loadBook,
     normalizeAccountKind,
+    normalizeClaim,
     normalizeCurrency,
+    parseGoals,
     saveBook,
     signedValue,
     categoryBudgetHint,
@@ -37,13 +39,15 @@ import {
     type Account,
     type AccountKind,
     type Book,
+    type ClaimMark,
     type Direction,
     type Entry,
     type Gender,
     type Holding,
     type HoldingKind,
+    type SavingGoal,
 } from './store';
-import { normalizeLocale, strings, type Copy, type Locale } from './i18n';
+import { localeChoices, normalizeLocale, strings, type Copy, type Locale } from './i18n';
 import './style.css';
 
 const ALL_CATEGORIES = '*';
@@ -51,7 +55,7 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'export' | 'import' | 'filter' | 'budget' | 'transfer' | 'privacy';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'holding' | 'holdingDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'language' | 'currency' | 'categories';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30;
@@ -112,6 +116,21 @@ function isoDate(date: Date) {
     const month = `${date.getMonth() + 1}`.padStart(2, '0');
     const day = `${date.getDate()}`.padStart(2, '0');
     return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function yearColumns(entries: Entry[], year: number) {
+    return Array.from({ length: 12 }, (_, index) => {
+        const month = index + 1;
+        const prefix = `${year}-${`${month}`.padStart(2, '0')}`;
+        const rows = entries.filter((entry) => entry.date.startsWith(prefix));
+        const spend = rows.filter((entry) => entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0);
+        const income = rows.filter((entry) => entry.direction === 'in').reduce((sum, entry) => sum + entry.amount, 0);
+        return { month, spend, income };
+    });
+}
+
+function claimBackTitle(template: string, title: string) {
+    return template.replace('{title}', title);
 }
 
 function monthBounds(offset: number) {
@@ -489,6 +508,8 @@ function money(value: number, mark: string) {
     return `${value < 0 ? '−' : ''}${mark}${body}`;
 }
 
+const AmountsHidden = React.createContext(false);
+
 function MoneyAmount({
     value,
     mark,
@@ -500,6 +521,10 @@ function MoneyAmount({
     size?: 'hero' | 'md' | 'sm';
     signed?: boolean;
 }) {
+    const hidden = React.useContext(AmountsHidden);
+    if (hidden) {
+        return <span className={`ledger-money ledger-money--${size}`} aria-label="hidden">***</span>;
+    }
     const negative = value < 0;
     const body = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return (
@@ -509,6 +534,24 @@ function MoneyAmount({
             <span className="ledger-money-mark">{mark}</span>
             <span className="ledger-money-value">{body}</span>
         </span>
+    );
+}
+
+function avatarMark(gender: Gender) {
+    if (gender === 'female') return '👩';
+    if (gender === 'male') return '👨';
+    return '🧑';
+}
+
+function SettingsLink({ title, value, danger, onClick }: { title: string; value?: string; danger?: boolean; onClick: () => void }) {
+    return (
+        <button type="button" className={`ledger-row-link${danger ? ' ledger-clear-row' : ''}`} onClick={onClick}>
+            <span>{title}</span>
+            <span className="ledger-row-trail">
+                {value ? <span className="ledger-row-value">{value}</span> : null}
+                <span className="ledger-chevron" aria-hidden="true">›</span>
+            </span>
+        </button>
     );
 }
 
@@ -560,6 +603,7 @@ type EntryDraft = {
     accountName: string;
     shared: boolean;
     checked: boolean;
+    claim: ClaimMark;
 };
 
 function blankEntry(book: Book): EntryDraft {
@@ -574,6 +618,7 @@ function blankEntry(book: Book): EntryDraft {
         accountName: '现金',
         shared: false,
         checked: false,
+        claim: 'none',
     };
 }
 
@@ -590,6 +635,9 @@ export default function LedgerApp() {
     const [scope, setScope] = useState<Scope>('mine');
     const [panel, setPanel] = useState<Panel>('none');
     const [clearAsk, setClearAsk] = useState(false);
+    const [importAsk, setImportAsk] = useState(false);
+    const [pendingImport, setPendingImport] = useState<Partial<Book> | null>(null);
+    const importFileRef = useRef<HTMLInputElement>(null);
     const [draft, setDraft] = useState<EntryDraft>(() => blankEntry(emptyBook()));
     const [accountName, setAccountName] = useState('');
     const [accountOpening, setAccountOpening] = useState('');
@@ -621,13 +669,16 @@ export default function LedgerApp() {
     const [calendarDay, setCalendarDay] = useState('');
     const [budgetInput, setBudgetInput] = useState('');
     const [exportNote, setExportNote] = useState('');
-    const [importNote, setImportNote] = useState('');
-    const [importText, setImportText] = useState('');
     const [transferFrom, setTransferFrom] = useState('');
     const [transferTo, setTransferTo] = useState('');
     const [transferAmount, setTransferAmount] = useState('');
     const [transferDate, setTransferDate] = useState(todayIso);
     const [categoryBudgetDraft, setCategoryBudgetDraft] = useState<Record<string, string>>({});
+    const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
+    const [goalId, setGoalId] = useState('');
+    const [goalTitle, setGoalTitle] = useState('');
+    const [goalTarget, setGoalTarget] = useState('');
+    const [goalSaved, setGoalSaved] = useState('');
 
     useEffect(() => {
         setBook(loadBook());
@@ -725,6 +776,8 @@ export default function LedgerApp() {
     const monthDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
     const paceOver = budget != null && budget > 0 && nowDay > 0 && (monthOut / nowDay) * monthDays > budget;
     const recurringItems = useMemo(() => detectRecurring(book.entries), [book.entries]);
+    const yearBars = useMemo(() => yearColumns(visibleEntries, reportYear), [visibleEntries, reportYear]);
+    const waitingClaims = visibleEntries.filter((entry) => normalizeClaim(entry.claim) === 'waiting' && entry.direction === 'out');
     const spendByDay = useMemo(() => {
         const map = new Map<string, number>();
         for (const entry of periodEntries) {
@@ -754,6 +807,7 @@ export default function LedgerApp() {
                 accountName: account?.name ?? '现金',
                 shared: entry.shared,
                 checked: entry.checked,
+                claim: normalizeClaim(entry.claim),
             });
         }
         setPanel('entry');
@@ -780,10 +834,87 @@ export default function LedgerApp() {
             accountId,
             shared: draft.shared,
             checked: draft.checked,
+            claim: draft.direction === 'out' ? draft.claim : 'none',
         };
         const entries = draft.id ? book.entries.map((entry) => (entry.id === draft.id ? next : entry)) : [next, ...book.entries];
         setBook({ ...book, accounts, entries });
         setPanel('none');
+    }
+
+    function openYear() {
+        setReportYear(new Date().getFullYear());
+        setPanel('year');
+    }
+
+    function openMonthFromYear(month: number) {
+        const startDate = new Date(reportYear, month - 1, 1);
+        const endDate = new Date(reportYear, month, 0);
+        setPeriodMode('range');
+        setRangeFrom(isoDate(startDate));
+        setRangeTo(isoDate(endDate));
+        setCategoryFilter(ALL_CATEGORIES);
+        setStatusFilter('all');
+        setSearch('');
+        setAccountFilter(ALL_ACCOUNTS);
+        setCalendarDay('');
+        setTxView('list');
+        setPanel('none');
+        setPage('transactions');
+    }
+
+    function openGoal(goal?: SavingGoal) {
+        setGoalId(goal?.id ?? '');
+        setGoalTitle(goal?.title ?? '');
+        setGoalTarget(goal ? goal.target.toFixed(2) : '');
+        setGoalSaved(goal ? goal.saved.toFixed(2) : '');
+        setPanel('goal');
+    }
+
+    function saveGoal() {
+        const title = goalTitle.trim();
+        const target = Number(goalTarget);
+        const saved = Number(goalSaved || '0');
+        if (!title || !Number.isFinite(target) || target <= 0 || !Number.isFinite(saved) || saved < 0) return;
+        const next: SavingGoal = {
+            id: goalId || createId(),
+            title,
+            target: Math.round(target * 100) / 100,
+            saved: Math.round(saved * 100) / 100,
+        };
+        const goals = goalId
+            ? book.goals.map((item) => (item.id === goalId ? next : item))
+            : [...book.goals, next];
+        setBook({ ...book, goals });
+        setPanel('none');
+    }
+
+    function deleteGoal(id: string) {
+        setBook({ ...book, goals: book.goals.filter((item) => item.id !== id) });
+        setPanel('none');
+    }
+
+    function payClaim(id: string) {
+        const source = book.entries.find((entry) => entry.id === id);
+        if (!source || normalizeClaim(source.claim) !== 'waiting') return;
+        const backId = `claim-${id}`;
+        const updated = book.entries.map((entry) => (entry.id === id ? { ...entry, claim: 'done' as const } : entry));
+        if (book.entries.some((entry) => entry.id === backId)) {
+            setBook({ ...book, entries: updated });
+            return;
+        }
+        const back: Entry = {
+            id: backId,
+            title: claimBackTitle(L.claimBack, source.title),
+            amount: source.amount,
+            direction: 'in',
+            category: source.category,
+            date: todayIso(),
+            accountId: source.accountId,
+            shared: source.shared,
+            checked: true,
+            claim: 'none',
+        };
+        setBook({ ...book, entries: [back, ...updated] });
     }
 
     function removeEntry(id: string) {
@@ -1026,7 +1157,7 @@ export default function LedgerApp() {
 
     function applyImportedBook(parsed: Partial<Book> | null) {
         if (!parsed || !Array.isArray(parsed.entries) || !Array.isArray(parsed.accounts)) {
-            setImportNote(L.importFail);
+            flashExportNote(L.importFail);
             return;
         }
         setBook(withoutSample({
@@ -1039,8 +1170,10 @@ export default function LedgerApp() {
                 opening: account.opening,
                 kind: normalizeAccountKind(account.kind),
             })),
-            entries: parsed.entries,
+            entries: parsed.entries.map((entry) => ({ ...entry, claim: normalizeClaim(entry.claim) })),
+            goals: parseGoals(parsed.goals),
             locale: parsed.locale === 'en' ? 'en' : 'zh',
+            hideAmounts: parsed.hideAmounts === true,
             currency: normalizeCurrency(parsed.currency),
             monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
             categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
@@ -1048,27 +1181,44 @@ export default function LedgerApp() {
             holdings: parseHoldings(parsed.holdings),
             sampleCleared: true,
         }));
-        setImportNote(L.importDone);
+        flashExportNote(L.importDone);
+    }
+
+    function stageImport(text: string) {
+        try {
+            const parsed = JSON.parse(text) as Partial<Book>;
+            if (!parsed || !Array.isArray(parsed.entries) || !Array.isArray(parsed.accounts)) {
+                flashExportNote(L.importFail);
+                return;
+            }
+            setPendingImport(parsed);
+            setImportAsk(true);
+        } catch {
+            flashExportNote(L.importFail);
+        }
     }
 
     function importBookFile(file: File) {
         const reader = new FileReader();
-        reader.onload = () => {
-            try {
-                applyImportedBook(JSON.parse(String(reader.result)) as Partial<Book>);
-            } catch {
-                setImportNote(L.importFail);
-            }
-        };
+        reader.onload = () => stageImport(String(reader.result));
         reader.readAsText(file);
     }
 
-    function importBookText() {
-        try {
-            applyImportedBook(JSON.parse(importText) as Partial<Book>);
-        } catch {
-            setImportNote(L.importFail);
-        }
+    function confirmImportBook() {
+        setImportAsk(false);
+        if (pendingImport) applyImportedBook(pendingImport);
+        setPendingImport(null);
+    }
+
+    function exportBookFile() {
+        const blob = new Blob([JSON.stringify(book)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'SpendLogBook.json';
+        link.click();
+        URL.revokeObjectURL(url);
+        flashExportNote(L.exportDone);
     }
 
     function confirmClearBook() {
@@ -1079,6 +1229,7 @@ export default function LedgerApp() {
             accounts: [],
             holdings: [],
             entries: [],
+            goals: [],
             templates: [],
             monthlyBudget: null,
             categoryBudgets: {},
@@ -1109,6 +1260,7 @@ export default function LedgerApp() {
     const showFab = panel === 'none' && (active === 'dashboard' || active === 'transactions');
 
     return (
+        <AmountsHidden.Provider value={book.hideAmounts === true}>
         <main className="ledger">
             <section className="ledger-phone">
                 <div className="ledger-stage">
@@ -1258,34 +1410,113 @@ export default function LedgerApp() {
                             <button type="button" className="ledger-pill" onClick={saveProfile} disabled={!draftName.trim()}>{L.save}</button>
                         </>
                     )}
-                    {panel === 'export' && (
-                        <>
-                            <SubpageHead L={L} title={L.dataManage} onBack={() => setPanel('none')} />
-                            <div className="ledger-export-card">
-                                <button type="button" className="ledger-row-link ledger-clear-row" onClick={() => setClearAsk(true)}>
-                                    <span>{L.clearBook}</span>
-                                    <span aria-hidden="true">!</span>
-                                </button>
-                            </div>
-                            {exportNote && <p className="ledger-toast" role="status">{exportNote}</p>}
-                        </>
-                    )}
                     {panel === 'privacy' && (
                         <div className="ledger-privacy">
                             <SubpageHead L={L} title={L.privacy} onBack={() => setPanel('none')} />
                             <iframe className="ledger-privacy-frame" title={L.privacy} src="/prototypes/ledger/privacy.html" />
                         </div>
                     )}
-                    {panel === 'import' && (
+                    {panel === 'language' && (
                         <>
-                            <SubpageHead L={L} title={L.importData} onBack={() => setPanel('none')} />
-                            <textarea className="ledger-field ledger-json" value={importText} placeholder={L.importPaste} onChange={(event) => setImportText(event.target.value)} />
-                            <button type="button" className="ledger-pill" onClick={importBookText} disabled={!importText.trim()}>{L.importData}</button>
-                            <label className="ledger-text-button ledger-import-row">
-                                {L.importFile}
-                                <input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) importBookFile(file); event.target.value = ''; }} />
-                            </label>
-                            {importNote && <p className="ledger-panel-note">{importNote}</p>}
+                            <SubpageHead L={L} title={L.language} onBack={() => setPanel('none')} />
+                            <div className="ledger-export-card">
+                                {localeChoices.map((item, index) => (
+                                    <React.Fragment key={item.id}>
+                                        {index > 0 && <div className="ledger-settings-divider" role="presentation" />}
+                                        <button type="button" className="ledger-row-link" onClick={() => setBook({ ...book, locale: item.id })}>
+                                            <span>{item.title}</span>
+                                            {locale === item.id && <span aria-hidden="true">✓</span>}
+                                        </button>
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                    {panel === 'currency' && (
+                        <>
+                            <SubpageHead L={L} title={L.currency} onBack={() => setPanel('none')} />
+                            <div className="ledger-export-card">
+                                {currencyOptions.map((item, index) => (
+                                    <React.Fragment key={item}>
+                                        {index > 0 && <div className="ledger-settings-divider" role="presentation" />}
+                                        <button type="button" className="ledger-row-link" onClick={() => setBook({ ...book, currency: item })}>
+                                            <span>{item}  {currencyMark[item]}</span>
+                                            {book.currency === item && <span aria-hidden="true">✓</span>}
+                                        </button>
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                    {panel === 'categories' && (
+                        <>
+                            <SubpageHead L={L} title={L.categories} onBack={() => setPanel('none')} />
+                            <div className="ledger-card-head">
+                                <h2>{L.categories}</h2>
+                                <button type="button" className="ledger-head-action" onClick={() => setEditingCategories((on) => !on)}>{editingCategories ? L.done : L.edit}</button>
+                            </div>
+                            <div className={`ledger-chips${editingCategories ? ' is-editing' : ''}`}>
+                                {book.categories.map((name) => (
+                                    <span key={name} className="ledger-static-chip">
+                                        {name}
+                                        {editingCategories && book.categories.length > 1 && (
+                                            <button type="button" className="ledger-chip-remove" aria-label={`${L.deleteCategory}${name}`} onClick={() => removeCategory(name)}>×</button>
+                                        )}
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="ledger-add-row">
+                                <input className="ledger-field" value={categoryName} placeholder={L.newCategory} onChange={(event) => setCategoryName(event.target.value)} />
+                                <button type="button" className="ledger-pill" onClick={addCategory} disabled={!categoryName.trim()}>{L.add}</button>
+                            </div>
+                        </>
+                    )}
+                    {panel === 'year' && (
+                        <YearReportPanel
+                            L={L}
+                            year={reportYear}
+                            columns={yearBars}
+                            mark={mark}
+                            onPrev={() => setReportYear((value) => value - 1)}
+                            onNext={() => setReportYear((value) => Math.min(value + 1, new Date().getFullYear()))}
+                            nextDisabled={reportYear >= new Date().getFullYear()}
+                            onMonth={openMonthFromYear}
+                            onBack={() => setPanel('none')}
+                        />
+                    )}
+                    {panel === 'goals' && (
+                        <>
+                            <SubpageHead L={L} title={L.savingGoals} onBack={() => setPanel('none')} />
+                            <button type="button" className="ledger-pill" onClick={() => openGoal()}>{L.add}</button>
+                            {book.goals.map((goal) => {
+                                const ratio = goal.target > 0 ? Math.min(100, (goal.saved / goal.target) * 100) : 0;
+                                return (
+                                    <button key={goal.id} type="button" className="ledger-goal-row" onClick={() => openGoal(goal)}>
+                                        <span className="ledger-goal-meta">
+                                            <b>{goal.title}</b>
+                                            <MoneyAmount value={goal.saved} mark={mark} size="sm" />
+                                            <span className="ledger-goal-slash">/</span>
+                                            <span className="ledger-goal-cap"><MoneyAmount value={goal.target} mark={mark} size="sm" /></span>
+                                        </span>
+                                        <span className="ledger-budget-track" aria-hidden="true">
+                                            <span className="ledger-budget-fill" style={{ width: `${ratio}%` }} />
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </>
+                    )}
+                    {panel === 'goal' && (
+                        <>
+                            <SubpageHead L={L} title={L.savingGoals} onBack={() => setPanel('none')} />
+                            <label className="ledger-label" htmlFor="goal-name">{L.name}</label>
+                            <input id="goal-name" className="ledger-field" value={goalTitle} placeholder={L.namePh} onChange={(event) => setGoalTitle(event.target.value)} />
+                            <label className="ledger-label" htmlFor="goal-target">{L.savingTarget}</label>
+                            <input id="goal-target" className="ledger-field" inputMode="decimal" value={goalTarget} placeholder="0.00" onChange={(event) => setGoalTarget(event.target.value)} />
+                            <label className="ledger-label" htmlFor="goal-saved">{L.savingSaved}</label>
+                            <input id="goal-saved" className="ledger-field" inputMode="decimal" value={goalSaved} placeholder="0.00" onChange={(event) => setGoalSaved(event.target.value)} />
+                            <button type="button" className="ledger-pill" onClick={saveGoal} disabled={!goalTitle.trim() || !(Number(goalTarget) > 0)}>{L.save}</button>
+                            {goalId && <button type="button" className="ledger-text-button" onClick={() => deleteGoal(goalId)}>{L.deleteEntry}</button>}
                         </>
                     )}
                     {panel === 'filter' && (
@@ -1321,6 +1552,23 @@ export default function LedgerApp() {
                                     · {L.monthBalance} <MoneyAmount value={monthBalance} mark={mark} size="sm" signed />
                                 </div>
                             </article>
+                            {waitingClaims.length > 0 && (
+                                <section className="ledger-panel">
+                                    <div className="ledger-panel-head">
+                                        <h2>{`${L.claimTitle} · ${waitingClaims.length}`}</h2>
+                                    </div>
+                                    {waitingClaims.map((entry) => (
+                                        <div key={entry.id} className="ledger-claim-row">
+                                            <button type="button" className="ledger-claim-main" onClick={() => openEntry(entry)}>
+                                                <b>{entry.title}</b>
+                                                <span>{entry.category}</span>
+                                            </button>
+                                            <MoneyAmount value={entry.amount} mark={mark} size="sm" />
+                                            <button type="button" className="ledger-claim-paid" onClick={() => payClaim(entry.id)}>{L.claimPaid}</button>
+                                        </div>
+                                    ))}
+                                </section>
+                            )}
                             <section className="ledger-panel ledger-budget-panel">
                                 {budget != null && budget > 0 ? (
                                     <>
@@ -1613,7 +1861,7 @@ export default function LedgerApp() {
                         <>
                             <h1>{L.me}</h1>
                             <button type="button" className="ledger-card ledger-profile" onClick={openProfile}>
-                                <div className="ledger-mark">{displayName.slice(0, 1)}</div>
+                                <div className="ledger-mark">{avatarMark(book.gender)}</div>
                                 <div className="ledger-profile-copy">
                                     <div className="ledger-profile-title">
                                         <b>{displayName}</b>
@@ -1626,65 +1874,48 @@ export default function LedgerApp() {
                                 </div>
                             </button>
                             <section className="ledger-card ledger-settings">
-                                <button type="button" className="ledger-row-link" onClick={openBudgetPanel}>
-                                    <span>{L.monthlyBudget}</span>
-                                    <span className="ledger-row-value">
-                                        {budget != null && budget > 0 ? money(budget, mark) : L.budgetUnset}
-                                    </span>
-                                </button>
+                                <h2 className="ledger-settings-kicker">{L.meLedger}</h2>
+                                <SettingsLink title={L.yearReport} onClick={openYear} />
                                 <div className="ledger-settings-divider" role="presentation" />
-                                <button type="button" className="ledger-row-link" onClick={() => { setExportNote(''); setPanel('export'); }}>
-                                    <span>{L.dataManage}</span>
-                                    <span className="ledger-chevron" aria-hidden="true">›</span>
-                                </button>
+                                <SettingsLink title={L.monthlyBudget} value={book.hideAmounts ? '***' : (budget != null && budget > 0 ? money(budget, mark) : L.budgetUnset)} onClick={openBudgetPanel} />
                                 <div className="ledger-settings-divider" role="presentation" />
-                                <button type="button" className="ledger-row-link" onClick={() => { setImportNote(''); setPanel('import'); }}>
-                                    <span>{L.importData}</span>
-                                    <span className="ledger-chevron" aria-hidden="true">›</span>
-                                </button>
+                                <SettingsLink title={L.savingGoals} value={book.goals.length > 0 ? String(book.goals.length) : undefined} onClick={() => setPanel('goals')} />
                                 <div className="ledger-settings-divider" role="presentation" />
-                                <button type="button" className="ledger-row-link" onClick={() => setPanel('privacy')}>
-                                    <span>{L.privacy}</span>
-                                    <span className="ledger-chevron" aria-hidden="true">›</span>
-                                </button>
-                                <div className="ledger-settings-divider" role="presentation" />
-                                <div className="ledger-settings-block">
-                                    <p className="ledger-settings-label" id="ledger-locale-label">{L.language}</p>
-                                    <div className="ledger-choice-row" role="tablist" aria-labelledby="ledger-locale-label">
-                                        <button type="button" role="tab" aria-selected={locale === 'zh'} className={locale === 'zh' ? 'is-on' : ''} onClick={() => setBook({ ...book, locale: 'zh' })}>中文</button>
-                                        <button type="button" role="tab" aria-selected={locale === 'en'} className={locale === 'en' ? 'is-on' : ''} onClick={() => setBook({ ...book, locale: 'en' })}>English</button>
-                                    </div>
-                                </div>
-                                <div className="ledger-settings-divider" role="presentation" />
-                                <div className="ledger-settings-block">
-                                    <p className="ledger-settings-label" id="ledger-currency-label">{L.currency}</p>
-                                    <div className="ledger-choice-row ledger-choice-row--wrap" role="tablist" aria-labelledby="ledger-currency-label">
-                                        {currencyOptions.map((item) => (
-                                            <button key={item} type="button" role="tab" aria-selected={book.currency === item} className={book.currency === item ? 'is-on' : ''} onClick={() => setBook({ ...book, currency: item })}>{item}</button>
-                                        ))}
-                                    </div>
-                                </div>
+                                <SettingsLink title={L.categories} value={String(book.categories.length)} onClick={() => setPanel('categories')} />
                             </section>
-                            <section className="ledger-card">
-                                <div className="ledger-card-head">
-                                    <h2>{L.categories}</h2>
-                                    <button type="button" className="ledger-head-action" onClick={() => setEditingCategories((on) => !on)}>{editingCategories ? L.done : L.edit}</button>
-                                </div>
-                                <div className={`ledger-chips${editingCategories ? ' is-editing' : ''}`}>
-                                    {book.categories.map((name) => (
-                                        <span key={name} className="ledger-static-chip">
-                                            {name}
-                                            {editingCategories && book.categories.length > 1 && (
-                                                <button type="button" className="ledger-chip-remove" aria-label={`${L.deleteCategory}${name}`} onClick={() => removeCategory(name)}>×</button>
-                                            )}
-                                        </span>
-                                    ))}
-                                </div>
-                                <div className="ledger-add-row">
-                                    <input className="ledger-field" value={categoryName} placeholder={L.newCategory} onChange={(event) => setCategoryName(event.target.value)} />
-                                    <button type="button" className="ledger-pill" onClick={addCategory} disabled={!categoryName.trim()}>{L.add}</button>
-                                </div>
+                            <section className="ledger-card ledger-settings">
+                                <h2 className="ledger-settings-kicker">{L.meDisplay}</h2>
+                                <button type="button" className="ledger-row-link" onClick={() => setBook({ ...book, hideAmounts: !book.hideAmounts })}>
+                                    <span>{L.hideAmounts}</span>
+                                    <span className="ledger-row-value">{book.hideAmounts ? L.hideAmountsOn : L.hideAmountsOff}</span>
+                                </button>
+                                <div className="ledger-settings-divider" role="presentation" />
+                                <SettingsLink title={L.language} value={localeChoices.find((item) => item.id === locale)?.title ?? locale} onClick={() => setPanel('language')} />
+                                <div className="ledger-settings-divider" role="presentation" />
+                                <SettingsLink title={L.currency} value={`${book.currency}  ${mark}`} onClick={() => setPanel('currency')} />
                             </section>
+                            <section className="ledger-card ledger-settings">
+                                <h2 className="ledger-settings-kicker">{L.meData}</h2>
+                                <SettingsLink title={L.exportData} onClick={exportBookFile} />
+                                <div className="ledger-settings-divider" role="presentation" />
+                                <SettingsLink title={L.importData} onClick={() => importFileRef.current?.click()} />
+                                <div className="ledger-settings-divider" role="presentation" />
+                                <SettingsLink title={L.clearBook} danger onClick={() => setClearAsk(true)} />
+                            </section>
+                            <section className="ledger-card ledger-settings">
+                                <SettingsLink title={L.privacy} onClick={() => setPanel('privacy')} />
+                            </section>
+                            <input
+                                ref={importFileRef}
+                                type="file"
+                                accept="application/json,.json"
+                                hidden
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    if (file) importBookFile(file);
+                                    event.target.value = '';
+                                }}
+                            />
                         </>
                     )}
                 </div>
@@ -1693,6 +1924,21 @@ export default function LedgerApp() {
                     <button type="button" className="ledger-fab" aria-label={L.fabLabel} onClick={() => openEntry()}>+</button>
                 )}
                 </div>
+
+                {exportNote && <p className="ledger-toast" role="status">{exportNote}</p>}
+
+                {importAsk && (
+                    <div className="ledger-modal-backdrop" role="presentation" onClick={() => setImportAsk(false)}>
+                        <div className="ledger-modal" role="dialog" aria-modal="true" aria-labelledby="ledger-import-title" onClick={(event) => event.stopPropagation()}>
+                            <h2 id="ledger-import-title">{L.importData}</h2>
+                            <p>{L.importConfirm}</p>
+                            <div className="ledger-modal-actions">
+                                <button type="button" onClick={() => setImportAsk(false)}>{L.cancel}</button>
+                                <button type="button" className="is-danger" onClick={confirmImportBook}>{L.importData}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {clearAsk && (
                     <div className="ledger-modal-backdrop" role="presentation" onClick={() => setClearAsk(false)}>
@@ -1717,6 +1963,7 @@ export default function LedgerApp() {
                 </nav>
             </section>
         </main>
+        </AmountsHidden.Provider>
     );
 }
 
@@ -2081,6 +2328,56 @@ function SubpageHead({ L, title, onBack }: { L: Copy; title: string; onBack: () 
     );
 }
 
+function YearReportPanel({
+    L,
+    year,
+    columns,
+    mark,
+    onPrev,
+    onNext,
+    nextDisabled,
+    onMonth,
+    onBack,
+}: {
+    L: Copy;
+    year: number;
+    columns: { month: number; spend: number; income: number }[];
+    mark: string;
+    onPrev: () => void;
+    onNext: () => void;
+    nextDisabled: boolean;
+    onMonth: (month: number) => void;
+    onBack: () => void;
+}) {
+    const spend = columns.reduce((sum, column) => sum + column.spend, 0);
+    const income = columns.reduce((sum, column) => sum + column.income, 0);
+    const peak = Math.max(...columns.map((column) => Math.max(column.spend, column.income)), 1);
+    const balance = income - spend;
+    return (
+        <>
+            <SubpageHead L={L} title={`${year} ${L.yearReport}`} onBack={onBack} />
+            <div className="ledger-year-nav">
+                <button type="button" onClick={onPrev}>{L.yearPrev}</button>
+                <button type="button" onClick={onNext} disabled={nextDisabled}>{L.yearNext}</button>
+            </div>
+            <div className="ledger-year-bars">
+                {columns.map((column) => (
+                    <button key={column.month} type="button" className="ledger-year-col" onClick={() => onMonth(column.month)}>
+                        <span className="ledger-year-pair">
+                            <i className={`ledger-year-bar is-spend${column.spend > 0 ? '' : ' is-empty'}`} style={{ height: `${Math.max(4, (140 * column.spend) / peak)}px` }} />
+                            <i className={`ledger-year-bar is-income${column.income > 0 ? '' : ' is-empty'}`} style={{ height: `${Math.max(4, (140 * column.income) / peak)}px` }} />
+                        </span>
+                        <span>{column.month}</span>
+                    </button>
+                ))}
+            </div>
+            <div className="ledger-year-total"><span>{L.yearSpend}</span><MoneyAmount value={spend} mark={mark} size="sm" /></div>
+            <div className="ledger-year-total"><span>{L.yearIncome}</span><MoneyAmount value={income} mark={mark} size="sm" /></div>
+            <div className="ledger-year-total"><span>{L.yearBalance}</span><MoneyAmount value={balance} mark={mark} size="sm" signed /></div>
+        </>
+    );
+}
+
 function FilterPage({ L, locale, scope, periodMode, rangeFrom, rangeTo, onScope, onToday, onMonth, onRange, onFrom, onTo, onBack }: {
     L: Copy;
     locale: Locale;
@@ -2189,6 +2486,16 @@ function EntryForm({
                 <input type="checkbox" checked={draft.shared} onChange={(event) => onChange({ ...draft, shared: event.target.checked })} />
                 {L.shared}
             </label>
+            {draft.direction === 'out' && (
+                <label className="ledger-check">
+                    <input
+                        type="checkbox"
+                        checked={draft.claim !== 'none'}
+                        onChange={() => onChange({ ...draft, claim: draft.claim === 'none' ? 'waiting' : 'none' })}
+                    />
+                    {draft.claim === 'done' ? L.claimDone : L.claimMark}
+                </label>
+            )}
             <button type="button" className="ledger-pill" onClick={onSave} disabled={!draft.title.trim() || !amountOk}>{L.save}</button>
             {draft.id && <button type="button" className="ledger-text-button" onClick={onDelete}>{L.deleteEntry}</button>}
         </>

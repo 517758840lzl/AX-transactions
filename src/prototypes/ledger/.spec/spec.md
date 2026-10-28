@@ -10,7 +10,7 @@
 
 | Tab | 参考 | 作用 |
 | --- | --- | --- |
-| 总览 | PocketGuard + 鲨鱼 + 一木 | 净资产（含持仓）、本月收支/结余、月预算 + 日均可花 + 超支节奏、分类预算、固定扣款、支出曲线、待核对 |
+| 总览 | PocketGuard + 鲨鱼 + 一木 | 净资产（含持仓）、年报、存钱目标、待报销、本月收支/结余、月预算 + 日均可花 + 超支节奏、分类预算、固定扣款、支出曲线、待核对 |
 | 流水 | 鲨鱼 + 钱迹 | 列表/收支日历、搜索筛选、饼图 + 支出排行、FAB 记一笔 |
 | 账户 | Copilot + 挖财式持仓 | 走势 hero、分组账户、区间涨跌；股票/ETF 与基金持仓（手动，无证券户）；转账；添加账户/添加持仓 |
 | 我的 | 钱迹/随手记 | 连续记账；预算/导入导出/隐私/语言/货币；分类 |
@@ -20,7 +20,9 @@
 ## 数据
 
 - 存储键 `ledger-book-v1`，逻辑见 `store.ts`
-- `Book`：`locale`、`currency`（默认 USD；USD/EUR/JPY/GBP/HKD/TWD/SGD/AUD/KRW/CAD，仅符号；无人民币 ¥）、`monthlyBudget`、`categoryBudgets`、`categories`、`accounts`、`entries`、`holdings`、`sampleCleared`
+- `Book`：`locale`、`currency`（默认 USD；USD/EUR/JPY/GBP/HKD/TWD/SGD/AUD/KRW/CAD，仅符号；无人民币 ¥）、`monthlyBudget`、`categoryBudgets`、`categories`、`accounts`、`entries`、`holdings`、`goals`、`sampleCleared`
+- **SavingGoal**：`title`、`target`、`saved`
+- **Entry.claim**：`none` | `waiting` | `done`，旧数据缺省 `none`
 - **Holding**：`kind` stock|etf|fund，`code`，`name`，`qty`，`costTotal`，`price`，`priceAsOf`；录入 **成本价**，存库为 `costTotal = qty × 成本价`
 - 净资产 = 账户余额 + Σ 持仓市值；走势 V0：持仓按当前市值计入各日
 - 持仓同 `kind+code` 去重
@@ -33,12 +35,12 @@
 
 ## 子页与要点
 
-记一笔、预算（含清空）、转账、账户/持仓编辑与详情、资料、隐私、筛选。无账户记一笔可 **自动建 cash 账户**。总览：固定扣款识别、本月分类 chip（可带分类预算条）、待核对批量标记。账户 hero 在有持仓时拆分 **余额 + 持仓市值**。完整清单见 PRD「功能清单」。
+记一笔（支出可标待报销）、年报、存钱目标、预算（含清空）、转账、账户/持仓编辑与详情、资料、隐私、筛选。无账户记一笔可 **自动建 cash 账户**。总览：年报入口、存钱目标、待报销到账、固定扣款识别、本月分类 chip（可带分类预算条）、待核对批量标记。账户 hero 在有持仓时拆分 **余额 + 持仓市值**。完整清单见 PRD「功能清单」。
 
 ## UI 约定
 
 - 主题 `src/themes/klarna-mobile/DESIGN.md`；hero `#0B051D`，深色面金额符号与数字同色
-- 表单互斥项：`ledger-choice-row` 单行，选中近黑底（账户类型、收支、标的类型、性别、语言、货币等）
+- 表单互斥项：`ledger-choice-row` 单行，选中浅粉底、深色字（账户类型、收支、标的类型、性别等）。语言、货币在「我的」里进入勾选列表。数据里的导出、导入、清除数据都带箭头。
 
 ## 验收
 
@@ -50,4 +52,5 @@
 - [ ] 持仓 CRUD、盈亏、净资产含持仓、导入导出 holdings
 - [ ] 语言与货币 / 示例账清空
 - [ ] 范围筛选、固定扣款、分类 chip、账户详情→流水
+- [ ] 年报、存钱目标、待报销到账
 - [ ] 构建 `prototypes/ledger` 通过

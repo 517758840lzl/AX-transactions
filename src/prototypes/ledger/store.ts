@@ -31,6 +31,8 @@ export type Holding = {
     priceAsOf: string;
 };
 
+export type ClaimMark = 'none' | 'waiting' | 'done';
+
 export type Entry = {
     id: string;
     title: string;
@@ -41,6 +43,15 @@ export type Entry = {
     accountId: string;
     shared: boolean;
     checked: boolean;
+    /** 缺省视为 none，旧账不改写其它字段 */
+    claim?: ClaimMark;
+};
+
+export type SavingGoal = {
+    id: string;
+    title: string;
+    target: number;
+    saved: number;
 };
 
 export type EntryTemplate = {
@@ -96,7 +107,9 @@ export type Book = {
     accounts: Account[];
     holdings: Holding[];
     entries: Entry[];
+    goals: SavingGoal[];
     sampleCleared?: boolean;
+    hideAmounts?: boolean;
 };
 
 const storageKey = 'ledger-book-v1';
@@ -221,6 +234,8 @@ export function emptyBook(): Book {
         accounts: [],
         holdings: [],
         entries: [],
+        goals: [],
+        hideAmounts: false,
     });
 }
 
@@ -245,9 +260,11 @@ export function loadBook(): Book {
                 opening: account.opening,
                 kind: normalizeAccountKind(account.kind),
             })),
-            entries: parsed.entries,
+            entries: parsed.entries.map((entry) => ({ ...entry, claim: normalizeClaim(entry.claim) })),
+            goals: parseGoals(parsed.goals),
             sampleCleared: parsed.sampleCleared,
             locale: parsed.locale === 'en' ? 'en' : 'zh',
+            hideAmounts: parsed.hideAmounts === true,
             currency: normalizeCurrency(parsed.currency),
             monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
             categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
@@ -381,6 +398,32 @@ export function bookNetWorth(accounts: Account[], entries: Entry[], holdings: Ho
 
 export function bookNetWorthOnDate(accounts: Account[], entries: Entry[], holdings: Holding[], iso: string) {
     return roundMoney(bookBalanceOnDate(accounts, entries, iso) + holdingsMarketTotal(holdings));
+}
+
+export function normalizeClaim(value: unknown): ClaimMark {
+    if (value === 'waiting' || value === 'done') return value;
+    return 'none';
+}
+
+export function parseGoals(raw: unknown): SavingGoal[] {
+    if (!Array.isArray(raw)) return [];
+    const kept: SavingGoal[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const row = item as Partial<SavingGoal>;
+        const title = String(row.title ?? '').trim();
+        const target = Number(row.target);
+        const saved = Number(row.saved);
+        if (!title || !Number.isFinite(target) || target <= 0) continue;
+        if (!Number.isFinite(saved) || saved < 0) continue;
+        kept.push({
+            id: typeof row.id === 'string' && row.id ? row.id : createId(),
+            title,
+            target: roundMoney(target),
+            saved: roundMoney(saved),
+        });
+    }
+    return kept;
 }
 
 export function holdingsEquivalent(a: Pick<Holding, 'kind' | 'code'>, b: Pick<Holding, 'kind' | 'code'>) {
