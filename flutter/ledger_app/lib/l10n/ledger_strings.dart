@@ -87,6 +87,7 @@ abstract final class LedgerStrings {
   static const transferFrom = '转出';
   static const transferTo = '转入';
   static const transferCategory = '转账';
+  static const transferNeedTwo = '再添加一个账户才能转账';
   static const accountPeriodNet = '区间净流入';
   static const accountsTrend = '净资产走势';
   static const accountsWindow7 = '7 天';

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../theme/ledger_text_styles.dart';
+import '../theme/ledger_colors.dart';
 
 OverlayEntry? _noteEntry;
 Timer? _noteTimer;
@@ -16,18 +16,24 @@ void showCenterNote(BuildContext context, String message) {
   if (overlay == null) return;
   final entry = OverlayEntry(
     builder: (context) {
-      final colors = Theme.of(context).colorScheme;
       return IgnorePointer(
         child: Center(
-          child: Material(
-            color: colors.inverseSurface,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Text(
-                message,
-                style: LedgerTextStyles.note.copyWith(color: colors.onInverseSurface),
-              ),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 320),
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: LedgerColors.white,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: LedgerColors.line),
+              boxShadow: const [
+                BoxShadow(color: Color(0x140B051D), blurRadius: 12, offset: Offset(0, 6)),
+              ],
+            ),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: LedgerColors.ink, fontWeight: FontWeight.w700, fontSize: 14, height: 1.35),
             ),
           ),
         ),

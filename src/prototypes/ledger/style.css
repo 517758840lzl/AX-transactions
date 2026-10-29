@@ -571,20 +571,28 @@
 }
 
 .ledger-toast {
-  position: fixed;
+  position: absolute;
   left: 50%;
+  right: auto;
   top: 50%;
-  z-index: 30;
+  bottom: auto;
+  z-index: 80;
   transform: translate(-50%, -50%);
+  align-self: center;
+  width: max-content;
+  height: max-content;
   max-width: calc(100% - 48px);
   margin: 0;
-  padding: 10px 16px;
-  border-radius: 12px;
-  background: #1c1b22;
-  color: #fff;
-  font-size: 13px;
-  line-height: 1.4;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
   text-align: center;
+  box-shadow: 0 10px 22px rgba(11, 5, 29, 0.12);
 }
 
 .ledger-panel-note {
@@ -1359,6 +1367,10 @@ textarea.ledger-json {
 .ledger-pill:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.ledger-pill.is-quiet {
+  opacity: 0.45;
 }
 
 .ledger-pill:active:not(:disabled) {
@@ -2404,9 +2416,9 @@ button.ledger-card.ledger-profile {
 }
 
 .ledger-modal-backdrop {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: 80;
   display: flex;
   align-items: center;
   justify-content: center;

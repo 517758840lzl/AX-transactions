@@ -2174,9 +2174,17 @@ export default function LedgerApp() {
                                     )}
                                 </>
                             )}
-                            {book.accounts.length >= 2 && (
-                                <button type="button" className="ledger-pill ledger-pill-secondary" onClick={openTransferPanel}>{L.transfer}</button>
-                            )}
+                            <button
+                                type="button"
+                                className={`ledger-pill ledger-pill-secondary${book.accounts.length >= 2 ? '' : ' is-quiet'}`}
+                                onClick={() => {
+                                    if (book.accounts.length < 2) {
+                                        flashExportNote(L.transferNeedTwo);
+                                        return;
+                                    }
+                                    openTransferPanel();
+                                }}
+                            >{L.transfer}</button>
                             <button type="button" className="ledger-pill" onClick={() => openAccount()}>{L.addAccount}</button>
                             <SampleNote L={L} book={book} onClear={clearSample} />
                         </>

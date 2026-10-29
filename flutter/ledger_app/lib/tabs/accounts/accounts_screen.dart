@@ -9,6 +9,7 @@ import '../../pages/holding_detail_page.dart';
 import '../../pages/holding_edit_page.dart';
 import '../../pages/transfer_page.dart';
 import '../../theme/ledger_text_styles.dart';
+import '../../widgets/center_note.dart';
 import '../../widgets/ledger_pill_button.dart';
 import '../../widgets/ledger_sample_banner.dart';
 import 'accounts_account_group.dart';
@@ -117,6 +118,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 
   Future<void> _transfer() async {
+    if (_state.accounts.length < 2) {
+      showCenterNote(context, LedgerStrings.transferNeedTwo);
+      return;
+    }
     final created = await TransferPage.open(context, accounts: _state.accounts);
     if (!mounted || created == null) return;
     _commit(_state.copyWith(entries: [...created, ..._state.entries]), publishEntries: true);
@@ -175,10 +180,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
               onOpen: _openHolding,
             ),
         ],
-        if (_state.showTransfer) ...[
-          const SizedBox(height: 10),
-          LedgerPillButton(label: LedgerStrings.transfer, onPressed: _transfer, secondary: true),
-        ],
+        const SizedBox(height: 10),
+        Opacity(
+          opacity: _state.accounts.length < 2 ? 0.45 : 1,
+          child: LedgerPillButton(label: LedgerStrings.transfer, onPressed: _transfer, secondary: true),
+        ),
         const SizedBox(height: 10),
         LedgerPillButton(label: LedgerStrings.addAccount, onPressed: _addAccount),
         const SizedBox(height: 10),

@@ -46,8 +46,6 @@ class AccountsTabState {
   bool get showSampleBanner =>
       !sampleCleared && (AccountsSampleData.hasSample(accounts) || AccountsSampleData.hasSampleHoldings(holdings));
 
-  bool get showTransfer => accounts.length >= 2;
-
   bool get isEmpty => accounts.isEmpty && holdings.isEmpty;
 
   AccountsTabState copyWith({
