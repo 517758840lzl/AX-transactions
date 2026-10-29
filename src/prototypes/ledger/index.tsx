@@ -753,6 +753,7 @@ export default function LedgerApp() {
     const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
     const [accountFilter, setAccountFilter] = useState(ALL_ACCOUNTS);
     const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'done'>('all');
+    const [txDirection, setTxDirection] = useState<'all' | 'out' | 'in'>('all');
     const [periodMode, setPeriodMode] = useState<PeriodMode>('month');
     const [feedKind, setFeedKind] = useState<StatsKind | ''>('');
     const [statsAnnual, setStatsAnnual] = useState(false);
@@ -827,7 +828,15 @@ export default function LedgerApp() {
         const hay = `${entry.title} ${entry.category} ${account?.name ?? ''}`.toLowerCase();
         return hay.includes(query);
     });
-    const txDays = filteredEntries.reduce<string[]>((list, entry) => {
+    const flowSpend = filteredEntries.filter((entry) => isSpend(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const flowIncome = filteredEntries.filter((entry) => isIncome(entry)).reduce((sum, entry) => sum + entry.amount, 0);
+    const flowBalance = flowIncome - flowSpend;
+    const shownEntries = filteredEntries.filter((entry) => {
+        if (txDirection === 'out') return entry.direction === 'out';
+        if (txDirection === 'in') return entry.direction === 'in';
+        return true;
+    });
+    const txDays = shownEntries.reduce<string[]>((list, entry) => {
         if (!list.includes(entry.date)) list.push(entry.date);
         return list;
     }, []).sort((a, b) => b.localeCompare(a));
@@ -1965,6 +1974,20 @@ export default function LedgerApp() {
                                 <h1>{L.transactions}</h1>
                                 <button type="button" className="ledger-chip-btn" onClick={() => setPanel('filter')}>{periodLabel}</button>
                             </div>
+                            <div className="ledger-flow" role="group" aria-label={L.transactions}>
+                                <button type="button" className={txDirection === 'out' ? 'is-on is-down' : 'is-down'} onClick={() => setTxDirection(txDirection === 'out' ? 'all' : 'out')}>
+                                    <span>{L.periodSpend}</span>
+                                    <MoneyAmount value={flowSpend} mark={mark} size="md" />
+                                </button>
+                                <button type="button" className={txDirection === 'in' ? 'is-on is-up' : 'is-up'} onClick={() => setTxDirection(txDirection === 'in' ? 'all' : 'in')}>
+                                    <span>{L.periodIncome}</span>
+                                    <MoneyAmount value={flowIncome} mark={mark} size="md" />
+                                </button>
+                                <button type="button" className={`${txDirection === 'all' ? 'is-on ' : ''}${flowBalance >= 0 ? 'is-up' : 'is-down'}`} onClick={() => setTxDirection('all')}>
+                                    <span>{L.periodBalance}</span>
+                                    <MoneyAmount value={flowBalance} mark={mark} size="md" signed />
+                                </button>
+                            </div>
                             <section className="ledger-toolbar" aria-label={L.filter}>
                                 <input className="ledger-search" value={search} placeholder={L.searchPlaceholder} onChange={(event) => setSearch(event.target.value)} aria-label={L.searchAria} />
                                 <div className="ledger-segment ledger-tx-view" role="tablist" aria-label={L.transactions}>
@@ -2020,7 +2043,7 @@ export default function LedgerApp() {
                                     <h2>{txView === 'calendar' && calendarDay ? dayLabel(calendarDay, locale, L) : periodLabel}</h2>
                                     <span className="ledger-topbar-meta">{L.periodSpend} <MoneyAmount value={periodOut} mark={mark} size="sm" /> · {L.periodIncome} <MoneyAmount value={periodIn} mark={mark} size="sm" /></span>
                                 </div>
-                                {filteredEntries.length === 0 ? (
+                                {shownEntries.length === 0 ? (
                                     <p className="ledger-panel-note">{L.txEmpty}</p>
                                 ) : (
                                     (txView === 'calendar' && calendarDay
@@ -2030,7 +2053,7 @@ export default function LedgerApp() {
                                         <div key={day}>
                                             {txView === 'list' && <p className="ledger-day-label">{dayLabel(day, locale, L)}</p>}
                                             <ul className="ledger-tx-list">
-                                                {filteredEntries.filter((entry) => entry.date === day).map((entry) => (
+                                                {shownEntries.filter((entry) => entry.date === day).map((entry) => (
                                                     <TxRow key={entry.id} L={L} entry={entry} accounts={book.accounts} mark={mark} onOpen={openEntry} onToggle={toggleChecked} />
                                                 ))}
                                             </ul>

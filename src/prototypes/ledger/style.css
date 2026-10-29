@@ -686,6 +686,51 @@
   color: var(--muted);
 }
 
+.ledger-flow {
+  display: flex;
+  margin-bottom: 12px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.ledger-flow button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 4px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ledger-flow button.is-on {
+  background: var(--wash);
+  border-color: var(--line);
+}
+
+.ledger-flow button > span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ledger-flow button.is-down .ledger-money {
+  color: #e85d75;
+}
+
+.ledger-flow button.is-up .ledger-money {
+  color: #2f9e62;
+}
+
 .ledger-toolbar {
   margin-bottom: 14px;
   padding: 12px;
