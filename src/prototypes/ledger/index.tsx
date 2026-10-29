@@ -1473,6 +1473,46 @@ export default function LedgerApp() {
         setPage('transactions');
     }
 
+    function goBack() {
+        if (panel === 'entry') {
+            closeEntry();
+            return;
+        }
+        if (panel === 'account') {
+            closeAccountEditor();
+            return;
+        }
+        if (panel === 'accountDetail') {
+            setViewingAccountId('');
+            setPanel('none');
+            return;
+        }
+        if (panel !== 'none') setPanel('none');
+    }
+
+    function edgeSwipe(event: React.PointerEvent<HTMLDivElement>) {
+        if (panel === 'none' || event.button !== 0) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (event.clientX - bounds.left > 28) return;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const move = (next: PointerEvent) => {
+            const dx = next.clientX - startX;
+            const dy = next.clientY - startY;
+            if (dx > 72 && dx > Math.abs(dy)) {
+                window.removeEventListener('pointermove', move);
+                window.removeEventListener('pointerup', up);
+                goBack();
+            }
+        };
+        const up = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+    }
+
     function setPanel(next: Panel) {
         const motion = next === 'none' ? 'back' : 'forward';
         pageMotionRef.current = motion;
@@ -1504,7 +1544,7 @@ export default function LedgerApp() {
                         <span className="ledger-opening-spin" aria-hidden />
                     </div>
                 )}
-                <div className="ledger-stage">
+                <div className="ledger-stage" onPointerDown={edgeSwipe}>
                 <div key={`${active}-${panel}`} className={`ledger-body is-${pageMotion}${showFab ? '' : ' is-rest'}${panel === 'privacy' ? ' is-privacy' : ''}`}>
                     {panel === 'entry' && (
                         <EntryForm
