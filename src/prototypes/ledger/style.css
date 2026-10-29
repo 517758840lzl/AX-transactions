@@ -358,7 +358,21 @@
 }
 
 .ledger-topbar h1 {
+  display: flex;
+  align-items: center;
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(18px, 5.6vw, 26px);
+}
+
+.ledger-title-count {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--muted);
 }
 
 .ledger-topbar-meta {
@@ -368,6 +382,8 @@
 }
 
 .ledger-chip-btn {
+  flex: none;
+  white-space: nowrap;
   border: 1px solid var(--line);
   background: #fff;
   color: var(--ink);
@@ -958,7 +974,7 @@ div.ledger-worth-open {
   column-gap: 8px;
   align-items: center;
   margin-top: 12px;
-  padding: 14px 14px 6px;
+  padding: 14px 14px 4px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -996,11 +1012,16 @@ div.ledger-worth-open {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  padding: 12px 0 8px;
+  gap: 8px;
+  padding: 14px 0 16px;
 }
 
 .ledger-account-flow-head b {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
   font-size: 11px;
   font-style: normal;
@@ -1012,9 +1033,10 @@ div.ledger-worth-open {
 }
 
 .ledger-account-flow-row {
-  min-height: 44px;
-  padding: 8px 0;
+  min-height: 56px;
+  padding: 0;
   border-top: 1px solid var(--line);
+  align-items: center;
 }
 
 .ledger-account-flow-row > span:nth-child(n + 2) {
@@ -1189,18 +1211,24 @@ div.ledger-worth-open {
   position: absolute;
   right: 22px;
   bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 56px;
   height: 56px;
+  padding: 0;
   border: 0;
   border-radius: 50%;
   background: var(--pink);
-  color: var(--ink);
-  font-size: 28px;
-  font-weight: 400;
-  line-height: 1;
   cursor: pointer;
-  box-shadow: 0 12px 28px rgba(255, 179, 199, 0.65);
+  box-shadow: 0 10px 22px rgba(11, 5, 29, 0.12);
   z-index: 2;
+}
+
+.ledger-fab svg {
+  width: 34px;
+  height: 34px;
+  display: block;
 }
 
 .ledger-tabs {
@@ -1214,6 +1242,7 @@ div.ledger-worth-open {
 }
 
 .ledger-tabs button {
+  min-width: 0;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -1224,8 +1253,16 @@ div.ledger-worth-open {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 6px 0;
+  padding: 6px 2px;
   cursor: pointer;
+}
+
+.ledger-tabs button span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(9px, 2.8vw, 11px);
 }
 
 .ledger-tabs button svg {
@@ -1727,7 +1764,23 @@ select.ledger-field:focus {
   color: var(--muted);
 }
 
+.ledger-row-link > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+}
+
+.ledger-row-link > span:not(:first-child) {
+  flex: none;
+}
+
 .ledger-row-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px;
   font-weight: 700;
   color: var(--muted);
@@ -1736,6 +1789,8 @@ select.ledger-field:focus {
 .ledger-row-trail {
   display: inline-flex;
   align-items: center;
+  flex: none;
+  max-width: 46%;
   gap: 6px;
 }
 
@@ -1777,6 +1832,26 @@ select.ledger-field:focus {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+}
+
+.ledger-account-guide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  border: 0;
+  background: var(--wash);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 10px 14px;
+  cursor: pointer;
 }
 
 .ledger-text-button {
@@ -1855,6 +1930,7 @@ button.ledger-card.ledger-profile {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
+  min-width: 0;
   padding: 2px 0;
   border: 0;
   background: transparent;
@@ -2507,6 +2583,7 @@ button.ledger-choice-trigger {
   font-size: 14px;
   font-weight: 700;
   color: var(--ink);
+  white-space: nowrap;
   cursor: pointer;
   padding: 0;
 }
@@ -2545,6 +2622,13 @@ button.ledger-choice-trigger {
   background: var(--pink);
   border-color: transparent;
   color: var(--ink);
+}
+
+.ledger-year-kinds button > span:first-child {
+  align-self: stretch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ledger-year-hero {
@@ -2866,17 +2950,78 @@ button.ledger-choice-trigger {
 .ledger-year-tops button,
 .ledger-year-accounts button {
   display: flex;
-  align-items: center;
-  gap: 8px;
   width: 100%;
-  min-height: 52px;
   border: 0;
   background: none;
-  padding: 6px 0;
+  padding: 8px 0;
   color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.ledger-year-tops button {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.ledger-year-accounts button {
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+}
+
+.ledger-year-top-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ledger-year-top-line b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.ledger-year-top-line .ledger-money {
+  flex: none;
+}
+
+.ledger-year-top-meta,
+.ledger-year-top-back,
+.ledger-year-top-track {
+  margin-left: 24px;
+}
+
+.ledger-year-top-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ledger-year-top-back,
+.ledger-year-top-back .ledger-money {
+  color: #e85d75;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ledger-year-top-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--wash);
+  overflow: hidden;
+}
+
+.ledger-year-top-track > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pink);
 }
 
 .ledger-year-rank {
@@ -2886,15 +3031,6 @@ button.ledger-choice-trigger {
   font-weight: 700;
 }
 
-.ledger-year-top-copy {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.ledger-year-top-copy b,
 .ledger-year-accounts button > span:nth-child(2) {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2902,16 +3038,10 @@ button.ledger-choice-trigger {
   font-size: 15px;
 }
 
-.ledger-year-top-copy span,
 .ledger-year-top-fig span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 650;
-}
-
-.ledger-year-top-copy .is-back,
-.ledger-year-top-copy .is-back .ledger-money {
-  color: #e85d75;
 }
 
 .ledger-year-top-fig {
@@ -3043,6 +3173,7 @@ button.ledger-choice-trigger {
   font-size: 16px;
   font-weight: 700;
   color: var(--faint);
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -3054,8 +3185,8 @@ button.ledger-choice-trigger {
 .ledger-stats-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
   margin-top: 14px;
 }
 
@@ -3093,11 +3224,11 @@ button.ledger-choice-trigger {
 }
 
 .ledger-stats-kinds {
-  display: flex;
-  gap: 6px;
+  display: contents;
 }
 
 .ledger-stats-kinds button {
+  flex: none;
   border: 1px solid var(--line);
   background: #fff;
   color: var(--ink);
@@ -3106,6 +3237,7 @@ button.ledger-choice-trigger {
   font: inherit;
   font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 

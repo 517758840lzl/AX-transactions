@@ -15,7 +15,7 @@ export type Account = {
     opening: number;
     kind: AccountKind;
     archived?: boolean;
-    /** 1–28。0 表示信用卡还没设出账日。 */
+    /** 1–28. 0 means no statement day yet. */
     statementDay?: number;
     dueDay?: number;
 };
@@ -32,9 +32,9 @@ export type Entry = {
     accountId: string;
     shared: boolean;
     checked: boolean;
-    /** 缺省视为 none，旧账不改写其它字段 */
+    /** Missing means none. Leave old books alone. */
     claim?: ClaimMark;
-    /** 缺省计入预算。转账、退款、报销入账为 false。 */
+    /** Counts, unless it's a transfer, a refund, or a reimbursement. */
     countsInBudget?: boolean;
     refundOf?: string;
     goalId?: string;
@@ -69,7 +69,7 @@ function normalizeTemplateAmount(amount: number) {
     return Math.round(amount * 100) / 100;
 }
 
-/** 备注、金额、收支、分类、账户、共享范围全部相同视为同一模板 */
+/** Same memo, amount, direction, category, account, and household flag is one template. */
 export function templatesEquivalent(
     a: Pick<EntryTemplate, 'title' | 'amount' | 'direction' | 'category' | 'accountId' | 'shared'>,
     b: Pick<EntryTemplate, 'title' | 'amount' | 'direction' | 'category' | 'accountId' | 'shared'>,
@@ -97,9 +97,9 @@ export type Book = {
     gender: Gender;
     locale: BookLocale;
     currency: Currency;
-    /** 本月支出预算；null 表示未设置 */
+    /** This month's spend cap. null if they haven't set one. */
     monthlyBudget: number | null;
-    /** 分类支出上限（可选） */
+    /** Optional cap per category. */
     categoryBudgets: Record<string, number>;
     templates: EntryTemplate[];
     categories: string[];
@@ -107,6 +107,8 @@ export type Book = {
     entries: Entry[];
     goals: SavingGoal[];
     sampleCleared?: boolean;
+    /** True after they pick a language. Older books never had this. */
+    localeChosen?: boolean;
     hideAmounts?: boolean;
     lockOnOpen?: boolean;
     removed?: RemovedEntry[];
@@ -114,10 +116,17 @@ export type Book = {
 
 const storageKey = 'ledger-book-v1';
 
-export const starterCategories = ['餐饮', '交通', '日用', '居住', '收入', '订阅', '娱乐'];
+export const starterCategories = ['Dining', 'Transit', 'Daily', 'Housing', 'Income', 'Subscriptions', 'Entertainment'];
 
-/** 分类预算输入框占位金额（元/月，仅提示，不自动写入） */
+/** Placeholder numbers in the category cap fields. Not saved. */
 export const categoryBudgetHintByName: Record<string, number> = {
+    Dining: 1800,
+    Transit: 400,
+    Daily: 600,
+    Housing: 3200,
+    Income: 8000,
+    Subscriptions: 200,
+    Entertainment: 500,
     餐饮: 1800,
     交通: 400,
     日用: 600,
@@ -163,53 +172,32 @@ function daysAgo(ago: number) {
     return `${date.getFullYear()}-${month}-${day}`;
 }
 
-function dateInMonth(offset: number, day: number) {
-    const now = new Date();
-    const last = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0).getDate();
-    const date = new Date(now.getFullYear(), now.getMonth() + offset, Math.min(day, last));
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const dateText = `${date.getDate()}`.padStart(2, '0');
-    return `${date.getFullYear()}-${month}-${dateText}`;
-}
-
-function earlierSamples(card: string): Entry[] {
-    return [
-        { id: 'sample-prev-coffee', title: '咖啡', amount: 7.2, direction: 'out', category: '餐饮', date: dateInMonth(-1, 6), accountId: card, shared: false, checked: true },
-        { id: 'sample-prev-market', title: '超市', amount: 48, direction: 'out', category: '日用', date: dateInMonth(-1, 14), accountId: card, shared: true, checked: true },
-        { id: 'sample-prev-ride', title: '地铁', amount: 18, direction: 'out', category: '交通', date: dateInMonth(-1, 21), accountId: card, shared: false, checked: false },
-        { id: 'sample-prev-rent', title: '房租', amount: 1450, direction: 'out', category: '居住', date: dateInMonth(-1, 5), accountId: card, shared: true, checked: true },
-    ];
-}
 function sampleBookParts(): Pick<Book, 'accounts' | 'entries'> {
     const cash = 'sample-cash';
     const card = 'sample-card';
     return {
         accounts: [
-            { id: cash, name: '现金', opening: 860, kind: 'cash' },
-            { id: card, name: 'Visa', opening: 4200, kind: 'card' },
+            { id: cash, name: 'Cash', opening: 100, kind: 'cash' },
+            { id: card, name: 'Visa', opening: 200, kind: 'card' },
         ],
         entries: [
-            { id: 'sample-lunch', title: '午饭', amount: 18.4, direction: 'out', category: '餐饮', date: daysAgo(0), accountId: cash, shared: false, checked: false },
-            { id: 'sample-metro', title: '地铁', amount: 2.75, direction: 'out', category: '交通', date: daysAgo(0), accountId: cash, shared: false, checked: true },
-            { id: 'sample-coffee', title: '咖啡', amount: 6.5, direction: 'out', category: '餐饮', date: daysAgo(1), accountId: card, shared: false, checked: false },
-            { id: 'sample-market', title: '超市', amount: 54.2, direction: 'out', category: '日用', date: daysAgo(1), accountId: card, shared: true, checked: true },
-            { id: 'sample-film', title: '电影', amount: 16, direction: 'out', category: '娱乐', date: daysAgo(4), accountId: card, shared: false, checked: false },
-            { id: 'sample-sub', title: '视频会员', amount: 15.99, direction: 'out', category: '订阅', date: daysAgo(8), accountId: card, shared: false, checked: true },
-            { id: 'sample-rent', title: '房租', amount: 1450, direction: 'out', category: '居住', date: daysAgo(15), accountId: card, shared: true, checked: true },
-            { id: 'sample-pay', title: '工资', amount: 3200, direction: 'in', category: '收入', date: daysAgo(19), accountId: card, shared: false, checked: true },
-            ...earlierSamples(card),
+            { id: 'sample-lunch', title: 'Lunch', amount: 18.4, direction: 'out', category: 'Dining', date: daysAgo(0), accountId: cash, shared: false, checked: false },
+            { id: 'sample-coffee', title: 'Coffee', amount: 6.5, direction: 'out', category: 'Dining', date: daysAgo(1), accountId: card, shared: true, checked: true },
+            { id: 'sample-metro', title: 'Metro', amount: 2.75, direction: 'out', category: 'Transit', date: daysAgo(0), accountId: cash, shared: false, checked: true },
         ],
     };
 }
 
 export function withSample(book: Book): Book {
     if (book.sampleCleared) return book;
-    if (book.accounts.length === 0 && book.entries.length === 0) return { ...book, ...sampleBookParts() };
-    const stillSample = book.entries.length > 0 && book.entries.every((entry) => entry.id.startsWith('sample-')) && book.accounts.some((account) => account.id === 'sample-card');
-    if (!stillSample) return book;
-    const missing = earlierSamples('sample-card').filter((entry) => !book.entries.some((item) => item.id === entry.id));
-    if (missing.length === 0) return book;
-    return { ...book, entries: [...book.entries, ...missing] };
+    const next = sampleBookParts();
+    const empty = book.accounts.length === 0 && book.entries.length === 0;
+    const onlySample = book.accounts.length > 0
+        && book.entries.length > 0
+        && book.accounts.every((account) => account.id.startsWith('sample-'))
+        && book.entries.every((entry) => entry.id.startsWith('sample-'));
+    if (!empty && !onlySample) return book;
+    return { ...book, ...next, categories: [...starterCategories] };
 }
 
 export function withoutSample(book: Book): Book {
@@ -225,7 +213,7 @@ export function emptyBook(): Book {
     return withSample({
         nickname: '',
         gender: 'secret',
-        locale: 'zh',
+        locale: 'en',
         currency: 'USD',
         monthlyBudget: null,
         categoryBudgets: {},
@@ -276,7 +264,7 @@ export function loadBook(): Book {
             removed: purgeRemoved(parseRemoved(parsed.removed)),
             lockOnOpen: parsed.lockOnOpen === true,
             sampleCleared: parsed.sampleCleared,
-            locale: parsed.locale === 'en' ? 'en' : 'zh',
+            locale: parsed.locale === 'zh' ? 'zh' : 'en',
             hideAmounts: parsed.hideAmounts === true,
             currency: normalizeCurrency(parsed.currency),
             monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
@@ -341,6 +329,19 @@ export function accountsBalanceTotal(accounts: Account[], entries: Entry[]) {
     return accounts.filter(countsTowardWorth).reduce((sum, account) => sum + accountTotal(account, entries), 0);
 }
 
+export function moneyTyping(raw: string) {
+    let kept = '';
+    let dotted = false;
+    for (const character of raw) {
+        if (character >= '0' && character <= '9') kept += character;
+        else if (character === '.' && !dotted) {
+            dotted = true;
+            kept += '.';
+        }
+    }
+    return kept;
+}
+
 export function solveMoney(raw: string) {
     const text = raw.replace(/ /g, '').replace(/＋/g, '+').replace(/－/g, '-').replace(/−/g, '-');
     if (!text) return null;
@@ -401,7 +402,7 @@ function shiftIso(iso: string, days: number) {
     return `${cursor.getFullYear()}-${month}-${day}`;
 }
 
-/** 净资产 = 计入资产的账户余额 */
+/** Net worth: balances of accounts that count. */
 export function bookNetWorth(accounts: Account[], entries: Entry[]) {
     return roundMoney(accountsBalanceTotal(accounts, entries));
 }

@@ -37,6 +37,7 @@ const zh = {
     accountCount: '个',
     opening: '起始',
     addAccount: '添加账户',
+    accountGuide: '还没有自己的账户，去添加',
     accountsEmpty: '添加第一个账户，填入真实余额。',
     accountsTrend: '净资产走势',
     accountsWindow7: '7 天',
@@ -317,6 +318,7 @@ const en: typeof zh = {
     accountCount: '',
     opening: 'Opening',
     addAccount: 'Add account',
+    accountGuide: 'No account of your own yet. Add one',
     accountsEmpty: 'Add your first account with the real balance.',
     accountsTrend: 'Net worth trend',
     accountsWindow7: '7D',
@@ -571,5 +573,5 @@ export function strings(locale: Locale) {
 }
 
 export function normalizeLocale(value: unknown): Locale {
-    return value === 'en' ? 'en' : 'zh';
+    return value === 'zh' ? 'zh' : 'en';
 }
