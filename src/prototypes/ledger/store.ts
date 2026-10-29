@@ -20,21 +20,6 @@ export type Account = {
     dueDay?: number;
 };
 
-/** 股票 / ETF / 场外基金；不绑证券账户，手动维护 */
-export type HoldingKind = 'stock' | 'etf' | 'fund';
-
-export type Holding = {
-    id: string;
-    kind: HoldingKind;
-    code: string;
-    name: string;
-    qty: number;
-    /** 总成本（非单价） */
-    costTotal: number;
-    price: number;
-    priceAsOf: string;
-};
-
 export type ClaimMark = 'none' | 'waiting' | 'done';
 
 export type Entry = {
@@ -119,7 +104,6 @@ export type Book = {
     templates: EntryTemplate[];
     categories: string[];
     accounts: Account[];
-    holdings: Holding[];
     entries: Entry[];
     goals: SavingGoal[];
     sampleCleared?: boolean;
@@ -248,7 +232,6 @@ export function emptyBook(): Book {
         templates: [],
         categories: [...starterCategories],
         accounts: [],
-        holdings: [],
         entries: [],
         goals: [],
         hideAmounts: false,
@@ -266,7 +249,8 @@ export function loadBook(): Book {
     try {
         const raw = localStorage.getItem(storageKey);
         if (!raw) return emptyBook();
-        const parsed = JSON.parse(raw) as Partial<Book>;
+        const stored = JSON.parse(raw) as Partial<Book> & { holdings?: unknown };
+        const { holdings: _ignoredHoldings, ...parsed } = stored;
         if (!parsed || !Array.isArray(parsed.entries) || !Array.isArray(parsed.accounts)) return emptyBook();
         return withSample({
             ...emptyBook(),
@@ -298,7 +282,6 @@ export function loadBook(): Book {
             monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
             categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
             templates: dedupeTemplates(Array.isArray(parsed.templates) ? parsed.templates : []),
-            holdings: parseHoldings(parsed.holdings),
         });
     } catch {
         return emptyBook();
@@ -342,50 +325,6 @@ function roundMoney(value: number) {
     return Math.round(value * 100) / 100;
 }
 
-export function normalizeHoldingKind(value: unknown): HoldingKind {
-    if (value === 'etf' || value === 'fund') return value;
-    return 'stock';
-}
-
-/** 早期表单把「每股成本」误存进 costTotal 时，按每股还原后再 × 份额 */
-function fixLegacyHoldingCost(holding: Holding): Holding {
-    if (holding.qty < 10) return holding;
-    const perUnitIfStoredAsTotal = holding.costTotal / holding.qty;
-    const looksLikePerShareInTotalField =
-        holding.costTotal <= holding.price * 2
-        && Math.abs(holding.costTotal - holding.price) < Math.abs(perUnitIfStoredAsTotal - holding.price);
-    if (!looksLikePerShareInTotalField) return holding;
-    return { ...holding, costTotal: roundMoney(holding.costTotal * holding.qty) };
-}
-
-export function parseHoldings(raw: unknown): Holding[] {
-    if (!Array.isArray(raw)) return [];
-    const kept: Holding[] = [];
-    for (const item of raw) {
-        if (!item || typeof item !== 'object') continue;
-        const row = item as Partial<Holding>;
-        const code = String(row.code ?? '').trim();
-        const name = String(row.name ?? '').trim();
-        const qty = Number(row.qty);
-        const costTotal = Number(row.costTotal);
-        const price = Number(row.price);
-        if (!code || !name || !Number.isFinite(qty) || qty <= 0) continue;
-        if (!Number.isFinite(costTotal) || costTotal < 0) continue;
-        if (!Number.isFinite(price) || price <= 0) continue;
-        kept.push(fixLegacyHoldingCost({
-            id: typeof row.id === 'string' && row.id ? row.id : createId(),
-            kind: normalizeHoldingKind(row.kind),
-            code,
-            name,
-            qty: roundMoney(qty),
-            costTotal: roundMoney(costTotal),
-            price: roundMoney(price),
-            priceAsOf: typeof row.priceAsOf === 'string' && row.priceAsOf ? row.priceAsOf : todayIsoStatic(),
-        }));
-    }
-    return kept;
-}
-
 function todayIsoStatic() {
     const now = new Date();
     const month = `${now.getMonth() + 1}`.padStart(2, '0');
@@ -393,28 +332,6 @@ function todayIsoStatic() {
     return `${now.getFullYear()}-${month}-${day}`;
 }
 
-export function holdingMarketValue(holding: Holding) {
-    return roundMoney(holding.qty * holding.price);
-}
-
-export function holdingsMarketTotal(holdings: Holding[]) {
-    return holdings.reduce((sum, item) => sum + holdingMarketValue(item), 0);
-}
-
-/** 每股/每份成本（存库为 costTotal，展示与录入用） */
-export function holdingCostPrice(holding: Holding) {
-    if (holding.qty <= 0) return 0;
-    return roundMoney(holding.costTotal / holding.qty);
-}
-
-export function holdingCostTotalFromPrice(qty: number, costPrice: number) {
-    return roundMoney(qty * costPrice);
-}
-
-/** 浮动盈亏 = 市值 − 成本总额（= (现价 − 成本价) × 份额） */
-export function holdingUnrealizedPnl(holding: Holding) {
-    return roundMoney(holdingMarketValue(holding) - holding.costTotal);
-}
 
 export function countsTowardWorth(account: Account) {
     return account.archived !== true;
@@ -484,13 +401,13 @@ function shiftIso(iso: string, days: number) {
     return `${cursor.getFullYear()}-${month}-${day}`;
 }
 
-/** 净资产 = 账户余额 + 持仓市值（V0 持仓按当前市值计入历史曲线） */
-export function bookNetWorth(accounts: Account[], entries: Entry[], holdings: Holding[]) {
-    return roundMoney(accountsBalanceTotal(accounts, entries) + holdingsMarketTotal(holdings));
+/** 净资产 = 计入资产的账户余额 */
+export function bookNetWorth(accounts: Account[], entries: Entry[]) {
+    return roundMoney(accountsBalanceTotal(accounts, entries));
 }
 
-export function bookNetWorthOnDate(accounts: Account[], entries: Entry[], holdings: Holding[], iso: string) {
-    return roundMoney(bookBalanceOnDate(accounts, entries, iso) + holdingsMarketTotal(holdings));
+export function bookNetWorthOnDate(accounts: Account[], entries: Entry[], iso: string) {
+    return roundMoney(bookBalanceOnDate(accounts, entries, iso));
 }
 
 export function normalizeClaim(value: unknown): ClaimMark {
@@ -517,8 +434,4 @@ export function parseGoals(raw: unknown): SavingGoal[] {
         });
     }
     return kept;
-}
-
-export function holdingsEquivalent(a: Pick<Holding, 'kind' | 'code'>, b: Pick<Holding, 'kind' | 'code'>) {
-    return a.kind === b.kind && a.code.trim().toUpperCase() === b.code.trim().toUpperCase();
 }

@@ -952,6 +952,75 @@ div.ledger-worth-open {
   height: 200px;
 }
 
+.ledger-account-flow {
+  display: grid;
+  grid-template-columns: 28px repeat(3, minmax(0, 1fr));
+  column-gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 14px 14px 6px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+
+.ledger-account-flow-head,
+.ledger-account-flow-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-account-flow-title {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.ledger-account-flow-title .ledger-chevron {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+.ledger-account-flow-head > span:not(.ledger-account-flow-title):not(.ledger-account-flow-gutter) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 0 8px;
+}
+
+.ledger-account-flow-head b {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 650;
+}
+
+.ledger-account-flow .is-out .ledger-money {
+  color: #e85d75;
+}
+
+.ledger-account-flow-row {
+  min-height: 44px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.ledger-account-flow-row > span:nth-child(n + 2) {
+  font-variant-numeric: tabular-nums;
+}
+
 .ledger-account-group {
   margin-top: 16px;
 }
@@ -2447,61 +2516,428 @@ button.ledger-choice-trigger {
   cursor: default;
 }
 
-.ledger-year-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  min-height: 168px;
-  margin-bottom: 16px;
+.ledger-year-kinds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.ledger-year-col {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  padding: 0;
+.ledger-year-kinds button {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 58px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-year-kinds button.is-on {
+  background: var(--pink);
+  border-color: transparent;
+  color: var(--ink);
+}
+
+.ledger-year-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 16px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 18px;
+  background: var(--wash);
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ledger-year-hero > span:first-child,
+.ledger-year-count,
+.ledger-year-balance {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.ledger-year-balance {
+  display: flex;
   align-items: center;
   gap: 6px;
-  cursor: pointer;
-  font: inherit;
+  margin-top: 4px;
+}
+
+.ledger-year-watermark {
+  position: absolute;
+  right: 12px;
+  bottom: -6px;
+  color: var(--pink);
+  font-size: 56px;
+  line-height: 1;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.ledger-year-card {
+  margin-bottom: 12px;
+  padding: 14px;
+  background: #fff;
+  border-radius: 16px;
+}
+
+.ledger-year-card h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+}
+
+.ledger-year-empty {
+  margin: 0;
   color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ledger-year-donut svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ledger-year-donut-label {
+  fill: var(--ink);
   font-size: 11px;
   font-weight: 700;
 }
 
-.ledger-year-pair {
-  height: 140px;
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
+.ledger-year-cat {
+  padding: 6px 0;
 }
 
-.ledger-year-bar {
-  display: block;
-  width: 6px;
-  border-radius: 3px;
-  min-height: 4px;
-}
-
-.ledger-year-bar.is-spend { background: #c45c6a; }
-.ledger-year-bar.is-income { background: #2f9e62; }
-.ledger-year-bar.is-empty { background: var(--line); }
-
-.ledger-year-total {
+.ledger-year-cat-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 48px;
-  padding: 0 14px;
-  margin-bottom: 8px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  gap: 8px;
+}
+
+.ledger-year-cat-row button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ledger-year-cat-row button:first-child {
+  flex: 1;
+  text-align: left;
+}
+
+.ledger-year-cat-row button:first-child span:nth-child(2) {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-year-cat-row i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.ledger-year-cat-row button:first-child .ledger-chevron {
+  color: var(--faint);
+  transition: transform 0.2s ease;
+}
+
+.ledger-year-cat-row button.is-open .ledger-chevron {
+  transform: rotate(90deg);
+}
+
+.ledger-year-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ledger-year-tiles button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  min-height: 92px;
+  padding: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--neutral);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-year-tiles button span:nth-child(2) {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-year-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--wash);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ledger-year-bubbles {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  height: 46px;
+  align-items: end;
+}
+
+.ledger-year-bubbles > div {
+  position: relative;
+  min-width: 0;
+}
+
+.ledger-year-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  transform: translateX(-50%);
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--pink);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ledger-year-bubble.is-start {
+  left: 0;
+  transform: none;
+}
+
+.ledger-year-bubble.is-end {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.ledger-year-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 1px;
+  height: 8px;
+  background: var(--pink);
+}
+
+.ledger-year-plot {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  align-items: end;
+  height: 120px;
+}
+
+.ledger-year-mean {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  border-top: 1px dashed var(--faint);
+  pointer-events: none;
+}
+
+.ledger-year-plot button {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.ledger-year-plot button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ledger-year-plot button i {
+  display: block;
+  width: 100%;
+  border-radius: 6px 6px 3px 3px;
+  background: var(--wash);
+}
+
+.ledger-year-plot button.is-on i {
+  background: var(--pink);
+}
+
+.ledger-year-months {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  margin-top: 6px;
+}
+
+.ledger-year-months b {
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ledger-year-months b.is-on {
+  color: var(--ink);
+}
+
+.ledger-year-months b.is-ahead {
+  opacity: 0.35;
+}
+
+.ledger-year-avg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ledger-year-avg > i {
+  width: 14px;
+  border-top: 1px dashed var(--faint);
+}
+
+.ledger-year-tops,
+.ledger-year-accounts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ledger-year-tops button,
+.ledger-year-accounts button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  background: none;
+  padding: 6px 0;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-year-rank {
+  width: 16px;
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ledger-year-top-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ledger-year-top-copy b,
+.ledger-year-accounts button > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 15px;
-  font-weight: 600;
+}
+
+.ledger-year-top-copy span,
+.ledger-year-top-fig span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ledger-year-top-copy .is-back,
+.ledger-year-top-copy .is-back .ledger-money {
+  color: #e85d75;
+}
+
+.ledger-year-top-fig {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.ledger-year-more {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ledger-year-accounts button > span:nth-child(2) {
+  flex: 1;
+  font-weight: 650;
 }
 
 .ledger-goal-row {
@@ -2584,4 +3020,245 @@ button.ledger-choice-trigger {
   border-radius: 999px;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.ledger-stats {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 16px 16px 8px;
+}
+
+.ledger-stats-tabs {
+  display: flex;
+  gap: 22px;
+}
+
+.ledger-stats-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  padding: 2px 0 8px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--faint);
+  cursor: pointer;
+}
+
+.ledger-stats-tabs button.is-on {
+  color: var(--ink);
+  border-bottom-color: var(--pink);
+}
+
+.ledger-stats-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.ledger-stats-step {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.ledger-stats-step span {
+  min-width: 72px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ledger-stats-step button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ledger-stats-step button:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.ledger-stats-kinds {
+  display: flex;
+  gap: 6px;
+}
+
+.ledger-stats-kinds button {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ledger-stats-kinds button.is-on {
+  background: var(--pink);
+  border-color: var(--pink);
+}
+
+.ledger-stats-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin: 16px 0 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.ledger-stats-total > span {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ledger-stats h2 {
+  margin: 18px 0 10px;
+  font-size: 17px;
+}
+
+.ledger-stats-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-height: 168px;
+}
+
+.ledger-stats-bars button {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.ledger-stats-bars button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ledger-stats-bars button i {
+  display: block;
+  width: 100%;
+  max-width: 36px;
+  border-radius: 8px 8px 4px 4px;
+  background: var(--wash);
+}
+
+.ledger-stats-bars button.is-on i {
+  background: var(--pink);
+}
+
+.ledger-stats-bars button b {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.ledger-stats-bars button.is-on b {
+  color: var(--ink);
+}
+
+.ledger-stats-bars .ledger-money--sm {
+  font-size: 9px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.ledger-stats-gap {
+  display: block;
+  height: 12px;
+}
+
+.ledger-mix,
+.ledger-rank-row {
+  display: flex;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  padding: 10px 0;
+  text-align: left;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ledger-mix {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ledger-mix-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ledger-mix-head b,
+.ledger-rank-row b {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-mix-track {
+  display: block;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--neutral);
+  overflow: hidden;
+}
+
+.ledger-mix-track i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--pink);
+}
+
+.ledger-rank-row {
+  align-items: center;
+  gap: 10px;
+}
+
+.ledger-rank-no {
+  width: 16px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
