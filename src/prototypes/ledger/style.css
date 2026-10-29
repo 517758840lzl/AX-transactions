@@ -60,37 +60,6 @@
   cursor: pointer;
 }
 
-.ledger-math {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.ledger-math button {
-  min-width: 40px;
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #fff;
-  color: var(--ink);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.ledger-math button.is-solve {
-  padding: 0 16px;
-  border-color: var(--pink);
-  background: var(--pink);
-}
-
-.ledger-math button:disabled {
-  border-color: var(--line);
-  background: var(--neutral);
-  color: var(--faint);
-  cursor: default;
-}
-
 .ledger-refund-done {
   margin: 8px 0 0;
   padding: 12px;
@@ -2037,6 +2006,22 @@ button.ledger-card.ledger-profile {
 
 .ledger-chips.is-editing {
   padding-top: 4px;
+}
+
+.ledger-profile-page .ledger-label {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.ledger-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--neutral);
+  display: grid;
+  place-items: center;
+  font-size: 42px;
+  line-height: 1;
 }
 
 .ledger-mark {

@@ -246,15 +246,6 @@ function openAccountList(accounts: Account[], keeping = '') {
     return accounts.filter((account) => account.archived !== true || account.id === keeping);
 }
 
-function canAppendMark(raw: string) {
-    const value = solveMoney(raw);
-    return value != null && value > 0;
-}
-
-function showsSolve(raw: string) {
-    return /[+\-＋－−]/.test(raw) && canAppendMark(raw);
-}
-
 function cardCycle(account: Account, entries: Entry[]) {
     const statementDay = account.statementDay ?? 0;
     if (normalizeAccountKind(account.kind) !== 'card' || statementDay < 1) return null;
@@ -1736,10 +1727,12 @@ export default function LedgerApp() {
                         />
                     )}
                     {panel === 'profile' && (
-                        <>
+                        <div className="ledger-profile-page">
                             <SubpageHead L={L} title={L.profileTitle} onBack={() => setPanel('none')} />
+                            <p className="ledger-label">{L.avatar}</p>
+                            <div className="ledger-avatar" aria-hidden>{avatarMark(draftGender)}</div>
                             <label className="ledger-label" htmlFor="ledger-nickname">{L.nickname}</label>
-                            <input id="ledger-nickname" className="ledger-field" value={draftName} maxLength={12} onChange={(event) => setDraftName(event.target.value)} />
+                            <input id="ledger-nickname" className="ledger-field" value={draftName} maxLength={12} placeholder={L.profileHint} onChange={(event) => setDraftName(event.target.value)} />
                             <p className="ledger-label">{L.gender}</p>
                             <div className="ledger-choice-row ledger-choice-row--3" role="tablist" aria-label={L.gender}>
                                 {(['female', 'male', 'secret'] as const).map((item) => (
@@ -1747,7 +1740,7 @@ export default function LedgerApp() {
                                 ))}
                             </div>
                             <button type="button" className="ledger-pill" onClick={saveProfile} disabled={!draftName.trim()}>{L.save}</button>
-                        </>
+                        </div>
                     )}
                     {panel === 'export' && (
                         <>
@@ -2333,14 +2326,16 @@ export default function LedgerApp() {
                     </div>
                 )}
 
-                <nav className="ledger-tabs" aria-label={L.mainNav}>
-                    {tabs.map((tab) => (
-                        <button key={tab.id} type="button" className={active === tab.id ? 'is-on' : ''} aria-current={active === tab.id ? 'page' : undefined} onClick={() => goTab(tab.id)}>
-                            {tab.icon}
-                            {tab.title}
-                        </button>
-                    ))}
-                </nav>
+                {panel === 'none' && (
+                    <nav className="ledger-tabs" aria-label={L.mainNav}>
+                        {tabs.map((tab) => (
+                            <button key={tab.id} type="button" className={active === tab.id ? 'is-on' : ''} aria-current={active === tab.id ? 'page' : undefined} onClick={() => goTab(tab.id)}>
+                                {tab.icon}
+                                {tab.title}
+                            </button>
+                        ))}
+                    </nav>
+                )}
             </section>
         </main>
         </AmountsHidden.Provider>
@@ -2973,11 +2968,6 @@ function EntryForm({
             </div>
             <label className="ledger-label" htmlFor="entry-amount">{L.amount}</label>
             <input id="entry-amount" className="ledger-field" inputMode="decimal" value={draft.amount} placeholder="0.00" onChange={(event) => onChange({ ...draft, amount: event.target.value })} />
-            <div className="ledger-math">
-                <button type="button" disabled={!canAppendMark(draft.amount)} onClick={() => onChange({ ...draft, amount: `${draft.amount}+` })}>+</button>
-                <button type="button" disabled={!canAppendMark(draft.amount)} onClick={() => onChange({ ...draft, amount: `${draft.amount}-` })}>−</button>
-                <button type="button" className="is-solve" disabled={!showsSolve(draft.amount)} onClick={() => onChange({ ...draft, amount: solved == null ? draft.amount : solved.toFixed(2) })}>{L.amountSolve}</button>
-            </div>
             <label className="ledger-label" htmlFor="entry-title">{L.name}</label>
             <input id="entry-title" className="ledger-field" value={draft.title} placeholder={L.namePh} onChange={(event) => onChange({ ...draft, title: event.target.value })} />
             {titleSuggestions.length > 0 && (
