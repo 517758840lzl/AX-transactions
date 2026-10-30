@@ -332,9 +332,15 @@ export function accountsBalanceTotal(accounts: Account[], entries: Entry[]) {
 export function moneyTyping(raw: string) {
     let kept = '';
     let dotted = false;
+    let places = 0;
     for (const character of raw) {
-        if (character >= '0' && character <= '9') kept += character;
-        else if (character === '.' && !dotted) {
+        if (character >= '0' && character <= '9') {
+            if (dotted) {
+                if (places >= 2) continue;
+                places += 1;
+            }
+            kept += character;
+        } else if (character === '.' && !dotted) {
             dotted = true;
             kept += '.';
         }

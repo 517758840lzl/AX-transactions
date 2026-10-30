@@ -334,7 +334,7 @@ function netWorthSeries(accounts: Account[], entries: Entry[], days: number) {
 }
 
 function accountPeriodFlow(accountId: string, entries: Entry[], start: string, end: string) {
-    const list = entries.filter((entry) => entry.accountId === accountId && entry.date >= start && entry.date <= end);
+    const list = entries.filter((entry) => entry.accountId === accountId && entry.date >= start && entry.date <= end && !isTransfer(entry));
     const inflow = list.filter((entry) => entry.direction === 'in').reduce((sum, entry) => sum + entry.amount, 0);
     const outflow = list.filter((entry) => entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0);
     return { inflow, outflow, net: inflow - outflow };
@@ -873,7 +873,7 @@ export default function LedgerApp() {
     const budget = book.monthlyBudget;
     const recurringItems = useMemo(() => detectRecurring(book.entries), [book.entries]);
     const monthKey = todayIso().slice(0, 7);
-    const monthMoves = book.entries.filter((entry) => entry.date.startsWith(monthKey));
+    const monthMoves = book.entries.filter((entry) => entry.date.startsWith(monthKey) && !isTransfer(entry));
     const monthOutAll = monthMoves.filter((entry) => entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0);
     const monthInAll = monthMoves.filter((entry) => entry.direction === 'in').reduce((sum, entry) => sum + entry.amount, 0);
     const waitingClaims = visibleEntries.filter((entry) => normalizeClaim(entry.claim) === 'waiting' && entry.direction === 'out');
