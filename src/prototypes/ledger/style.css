@@ -3327,6 +3327,20 @@ button.ledger-choice-trigger {
 .ledger-stats h2 {
   margin: 18px 0 10px;
   font-size: 17px;
+  font-weight: 700;
+}
+
+.ledger-stats h2.is-quiet {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.ledger-stats-total.is-quiet {
+  color: var(--muted);
+}
+
+.ledger-stats-total.is-quiet .ledger-money--hero {
+  font-weight: 500;
 }
 
 .ledger-stats-bars {
@@ -3366,6 +3380,10 @@ button.ledger-choice-trigger {
 
 .ledger-stats-bars button.is-on i {
   background: var(--pink);
+}
+
+.ledger-stats-bars button.is-on.is-empty i {
+  background: var(--wash);
 }
 
 .ledger-stats-bars button b {

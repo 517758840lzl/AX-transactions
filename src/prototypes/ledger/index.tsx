@@ -2394,11 +2394,11 @@ function BookStats({
                     ))}
                 </div>
             </div>
-            <button type="button" className="ledger-stats-total" onClick={() => onOpen(span.start, span.end, '', '')}>
+            <button type="button" className={total > 0 ? 'ledger-stats-total' : 'ledger-stats-total is-quiet'} onClick={() => onOpen(span.start, span.end, '', '')}>
                 <span>{fillCopy(L.statsCount, { count: String(inWindow.length), kind: kindName })}</span>
                 <MoneyAmount value={total} mark={mark} size="hero" />
             </button>
-            <h2>{fillCopy(annual ? L.statsCompareYear : L.statsCompareMonth, { kind: kindName })}</h2>
+            <h2 className={total > 0 ? undefined : 'is-quiet'}>{fillCopy(annual ? L.statsCompareYear : L.statsCompareMonth, { kind: kindName })}</h2>
             <div className="ledger-stats-bars">
                 {bars.map((key, index) => {
                     const amount = amounts[index];
@@ -2409,7 +2409,7 @@ function BookStats({
                         <button
                             key={key}
                             type="button"
-                            className={selected ? 'is-on' : ''}
+                            className={[selected ? 'is-on' : '', amount <= 0 ? 'is-empty' : ''].filter(Boolean).join(' ')}
                             disabled={future}
                             onClick={() => { onMonth(key); onAnnual(false); }}
                         >
@@ -2420,7 +2420,7 @@ function BookStats({
                     );
                 })}
             </div>
-            <h2>{fillCopy(L.statsCompose, { when, kind: kindName })}</h2>
+            <h2 className={total > 0 ? undefined : 'is-quiet'}>{fillCopy(L.statsCompose, { when, kind: kindName })}</h2>
             {mix.length === 0 ? <p className="ledger-panel-note">{L.statsEmpty}</p> : mix.map((item) => (
                 <button key={item.name} type="button" className="ledger-mix" onClick={() => onOpen(span.start, span.end, item.name, '')}>
                     <span className="ledger-mix-head">
@@ -2431,7 +2431,7 @@ function BookStats({
                     <span className="ledger-mix-track" aria-hidden="true"><i style={{ width: `${Math.max(6, (item.amount / (mix[0]?.amount || 1)) * 100)}%` }} /></span>
                 </button>
             ))}
-            <h2>{fillCopy(L.statsRank, { when, kind: kindName })}</h2>
+            <h2 className={total > 0 ? undefined : 'is-quiet'}>{fillCopy(L.statsRank, { when, kind: kindName })}</h2>
             {rank.length === 0 ? <p className="ledger-panel-note">{L.statsEmpty}</p> : rank.map((item, index) => (
                 <button key={item.name} type="button" className="ledger-rank-row" onClick={() => onOpen(span.start, span.end, '', item.name)}>
                     <span className="ledger-rank-no">{index + 1}</span>
