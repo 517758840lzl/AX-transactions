@@ -360,14 +360,23 @@ function streakDays(entries: Entry[]) {
     return streak;
 }
 
-function titleSuggestions(entries: Entry[], limit = 6) {
+function starterTitles(locale: Locale) {
+    if (locale === 'zh') return ['午餐', '咖啡', '地铁', '早饭', '晚饭', '买菜', '零食', '打车', '购物', '房租', '话费', '工资'];
+    return ['Lunch', 'Coffee', 'Metro', 'Breakfast', 'Dinner', 'Groceries', 'Snacks', 'Taxi', 'Shopping', 'Rent', 'Phone', 'Salary'];
+}
+
+function titleSuggestions(entries: Entry[], locale: Locale, limit = 6) {
     const counts = new Map<string, number>();
     for (const entry of entries) {
         const title = bareMemo(entry.title).trim();
         if (!title) continue;
         counts.set(title, (counts.get(title) ?? 0) + 1);
     }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit).map(([title]) => title);
+    const titles = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([title]) => title).slice(0, limit);
+    for (const title of starterTitles(locale)) {
+        if (!titles.includes(title)) titles.push(title);
+    }
+    return titles;
 }
 
 function categoriesByUsage(entries: Entry[], categories: string[]) {
@@ -912,7 +921,7 @@ export default function LedgerApp() {
         () => [...spendParts].sort((a, b) => b.amount - a.amount),
         [spendParts],
     );
-    const suggestionTitles = useMemo(() => titleSuggestions(book.entries), [book.entries]);
+    const suggestionTitles = useMemo(() => titleSuggestions(book.entries, locale), [book.entries, locale]);
     const orderedCategories = useMemo(() => categoriesByUsage(book.entries, book.categories), [book.entries, book.categories]);
     const logStreak = streakDays(book.entries);
     const loggedToday = book.entries.some((entry) => entry.date === todayIso());
@@ -993,7 +1002,8 @@ export default function LedgerApp() {
     function saveEntry() {
         const amount = solveMoney(draft.amount);
         const title = draft.title.trim();
-        if (!title || amount == null || amount <= 0 || !draft.accountId) return;
+        const ownAccount = book.accounts.some((account) => account.id === draft.accountId && !account.id.startsWith('sample-'));
+        if (!title || amount == null || amount <= 0 || (!draft.id && !ownAccount)) return;
         const accountId = draft.accountId;
         const accounts = book.accounts;
         const splitting = draft.splitOn && !draft.id;
@@ -2732,7 +2742,7 @@ function TxRow({ L, entry, accounts, mark, onOpen, onToggle }: { L: Copy; entry:
             <div className="ledger-tx-icon" style={{ background: `${sliceColors[colorIndex]}33` }}>{entry.category.slice(0, 1)}</div>
             <button type="button" className="ledger-tx-main" onClick={() => onOpen(entry)}>
                 <b>{entry.title}</b>
-                <span>{entry.category} · {account?.name ?? L.defaultAccount}{entry.shared ? ` · ${L.familyTag}` : ''}</span>
+                <span>{[entry.category, account?.name?.trim() ?? '', entry.shared ? L.familyTag : ''].filter(Boolean).join(' · ')}</span>
             </button>
             <div className="ledger-tx-side">
                 <MoneyAmount value={value} mark={mark} size="md" signed />
@@ -3515,7 +3525,7 @@ function EntryForm({
                     {draft.claim === 'done' ? L.claimDone : L.claimMark}
                 </label>
             </Fold>
-            <button type="button" className="ledger-pill" onClick={onSave} disabled={!draft.title.trim() || !amountOk || accounts.length === 0 || !draft.accountId}>{L.save}</button>
+            <button type="button" className="ledger-pill" onClick={onSave} disabled={!draft.title.trim() || !amountOk || (!draft.id && (accounts.length === 0 || !draft.accountId))}>{L.save}</button>
             {source && source.direction === 'out' && !source.refundOf && (
                 refunded
                     ? <p className="ledger-refund-done">{L.refundDone}</p>
