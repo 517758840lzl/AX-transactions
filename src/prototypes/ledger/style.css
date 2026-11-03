@@ -369,6 +369,7 @@
 }
 
 .ledger-title-count {
+  margin-left: 6px;
   font-size: 17px;
   font-weight: 600;
   line-height: 1;
@@ -1421,6 +1422,87 @@ textarea.ledger-json {
   border-color: var(--pink);
 }
 
+.ledger-field.is-still {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.ledger-remind-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.ledger-remind-card b {
+  font-size: 16px;
+}
+
+.ledger-switch {
+  width: 51px;
+  height: 31px;
+  border: 0;
+  border-radius: 99px;
+  background: #e5e3e8;
+  padding: 2px;
+  cursor: pointer;
+  flex: none;
+}
+
+.ledger-switch i {
+  display: block;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(11, 5, 29, 0.2);
+}
+
+.ledger-switch.is-on {
+  background: var(--pink);
+}
+
+.ledger-switch.is-on i {
+  transform: translateX(20px);
+}
+
+.ledger-remind-time {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: #fff;
+  padding: 0 18px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ledger-remind-note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ledger-remind-warn {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #fde8ec;
+  color: #e85d75;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 select.ledger-field {
   appearance: none;
   -webkit-appearance: none;
@@ -1474,6 +1556,108 @@ select.ledger-field:focus {
   background: #fff;
   color: var(--ink);
   box-shadow: 0 4px 12px rgba(11, 5, 29, 0.06);
+}
+
+.ledger-glyph-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 8px;
+  margin-top: 8px;
+}
+
+.ledger-glyph-cell {
+  position: relative;
+}
+
+.ledger-glyph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 76px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ledger-glyph-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--mark) 16%, #fff);
+  color: var(--mark);
+}
+
+.ledger-glyph-badge svg {
+  width: 22px;
+  height: 22px;
+}
+
+.ledger-glyph.is-on .ledger-glyph-badge,
+.ledger-glyph-badge.is-on {
+  background: color-mix(in srgb, var(--mark) 24%, #fff);
+  box-shadow: 0 0 0 2.5px var(--mark);
+}
+
+.ledger-glyph-badge.is-small,
+.ledger-rank-label .ledger-glyph-badge {
+  width: 22px;
+  height: 22px;
+}
+
+.ledger-glyph-badge.is-small svg,
+.ledger-rank-label .ledger-glyph-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ledger-glyph-name {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.ledger-glyph-remove {
+  position: absolute;
+  top: -2px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.ledger-glyph-add {
+  background: var(--wash);
+  color: var(--ink);
+  box-shadow: none;
+  border: 1.5px dashed var(--line);
+}
+
+.ledger-glyph-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 8px;
+  margin-top: 8px;
+}
+
+.ledger-glyph-picker button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
 }
 
 .ledger-chips {
@@ -1589,6 +1773,92 @@ select.ledger-field:focus {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.ledger-account-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ledger-account-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--pink) 55%, #fff);
+}
+
+.ledger-account-head i {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--ink);
+}
+
+.ledger-account-head svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ledger-account-head b {
+  display: block;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.ledger-account-head span {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.ledger-account-point {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: #fff;
+  text-align: left;
+}
+
+.ledger-account-point i {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--wash);
+  color: var(--ink);
+}
+
+.ledger-account-point svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ledger-account-point b {
+  display: block;
+  font-size: 16px;
+}
+
+.ledger-account-point span {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 .ledger-banner {
@@ -2204,6 +2474,10 @@ button.ledger-card.ledger-profile {
   font-weight: 700;
   cursor: pointer;
   padding: 0;
+}
+
+.ledger-subhead .ledger-head-action {
+  margin-left: auto;
 }
 
 .ledger-chips.is-editing {

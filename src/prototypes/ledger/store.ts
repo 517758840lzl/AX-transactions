@@ -103,6 +103,10 @@ export type Book = {
     categoryBudgets: Record<string, number>;
     templates: EntryTemplate[];
     categories: string[];
+    /** Icon key chosen for a category the person added. Presets are recognized by name. */
+    categoryMarks?: Record<string, string>;
+    /** 2 means the longer preset list has already been folded in. */
+    presetStamp?: number;
     accounts: Account[];
     entries: Entry[];
     goals: SavingGoal[];
@@ -111,12 +115,27 @@ export type Book = {
     localeChosen?: boolean;
     hideAmounts?: boolean;
     lockOnOpen?: boolean;
+    dailyReminder?: boolean;
+    reminderHour?: number;
+    reminderMinute?: number;
     removed?: RemovedEntry[];
 };
 
 const storageKey = 'ledger-book-v1';
 
-export const starterCategories = ['Dining', 'Transit', 'Daily', 'Housing', 'Income', 'Subscriptions', 'Entertainment'];
+export const starterCategories = ['Dining', 'Transit', 'Shopping', 'Daily', 'Housing', 'Snacks', 'Clothes', 'Entertainment', 'Social', 'Pets', 'Kids', 'Sports', 'Medical', 'Phone', 'Education', 'Subscriptions', 'Income', 'Travel', 'Beauty'];
+
+const previousCategories = ['Dining', 'Transit', 'Daily', 'Housing', 'Income', 'Subscriptions', 'Entertainment'];
+
+export function adoptCategories(book: Book): Book {
+    if (book.presetStamp === 2) return book;
+    const current = new Set(book.categories);
+    const previous = new Set(previousCategories);
+    const same = current.size === previous.size && previousCategories.every((name) => current.has(name));
+    if (same) return { ...book, categories: [...starterCategories], presetStamp: 2 };
+    const extras = starterCategories.filter((name) => !previous.has(name) && !current.has(name));
+    return { ...book, categories: [...book.categories, ...extras], presetStamp: 2 };
+}
 
 /** Placeholder numbers in the category cap fields. Not saved. */
 export const categoryBudgetHintByName: Record<string, number> = {
@@ -172,18 +191,58 @@ function daysAgo(ago: number) {
     return `${date.getFullYear()}-${month}-${day}`;
 }
 
+const sampleNames: Record<string, { zh: string; en: string }> = {
+    'sample-lunch': { zh: '午餐', en: 'Lunch' },
+    'sample-coffee': { zh: '咖啡', en: 'Coffee' },
+    'sample-metro': { zh: '地铁', en: 'Metro' },
+};
+
+function sampleTag(locale: string) {
+    return locale === 'zh' ? '示例' : 'Sample';
+}
+
+export function bareMemo(title: string) {
+    return stripSampleTag(title);
+}
+
+function stripSampleTag(title: string) {
+    const tags = ['示例', 'Sample'];
+    for (const tag of tags) {
+        const suffix = ` (${tag})`;
+        if (title.endsWith(suffix)) return title.slice(0, -suffix.length);
+    }
+    return title;
+}
+
+export function sampleDisplayTitle(id: string, locale: string, current: string) {
+    const names = sampleNames[id];
+    const bare = stripSampleTag(current);
+    const known = names ? [names.zh, names.en] : [];
+    const base = names && known.includes(bare) ? (locale === 'zh' ? names.zh : names.en) : bare;
+    const suffix = ` (${sampleTag(locale)})`;
+    return base.endsWith(suffix) ? base : `${base}${suffix}`;
+}
+
+export function labelSampleEntries<T extends Pick<Book, 'entries' | 'locale' | 'sampleCleared'>>(book: T): T {
+    if (book.sampleCleared) return book;
+    let changed = false;
+    const entries = book.entries.map((entry) => {
+        if (!entry.id.startsWith('sample-')) return entry;
+        const title = sampleDisplayTitle(entry.id, book.locale, entry.title);
+        if (title === entry.title) return entry;
+        changed = true;
+        return { ...entry, title };
+    });
+    return changed ? { ...book, entries } : book;
+}
+
 function sampleBookParts(): Pick<Book, 'accounts' | 'entries'> {
-    const cash = 'sample-cash';
-    const card = 'sample-card';
     return {
-        accounts: [
-            { id: cash, name: 'Cash', opening: 100, kind: 'cash' },
-            { id: card, name: 'Visa', opening: 200, kind: 'card' },
-        ],
+        accounts: [],
         entries: [
-            { id: 'sample-lunch', title: 'Lunch', amount: 18.4, direction: 'out', category: 'Dining', date: daysAgo(0), accountId: cash, shared: false, checked: false },
-            { id: 'sample-coffee', title: 'Coffee', amount: 6.5, direction: 'out', category: 'Dining', date: daysAgo(1), accountId: card, shared: true, checked: true },
-            { id: 'sample-metro', title: 'Metro', amount: 2.75, direction: 'out', category: 'Transit', date: daysAgo(0), accountId: cash, shared: false, checked: true },
+            { id: 'sample-lunch', title: 'Lunch', amount: 18.4, direction: 'out', category: 'Dining', date: daysAgo(0), accountId: 'sample-show', shared: false, checked: false },
+            { id: 'sample-coffee', title: 'Coffee', amount: 6.5, direction: 'out', category: 'Dining', date: daysAgo(1), accountId: 'sample-show', shared: true, checked: true },
+            { id: 'sample-metro', title: 'Metro', amount: 2.75, direction: 'out', category: 'Transit', date: daysAgo(0), accountId: 'sample-show', shared: false, checked: true },
         ],
     };
 }
@@ -192,12 +251,22 @@ export function withSample(book: Book): Book {
     if (book.sampleCleared) return book;
     const next = sampleBookParts();
     const empty = book.accounts.length === 0 && book.entries.length === 0;
-    const onlySample = book.accounts.length > 0
-        && book.entries.length > 0
-        && book.accounts.every((account) => account.id.startsWith('sample-'))
-        && book.entries.every((entry) => entry.id.startsWith('sample-'));
+    const onlySample = book.entries.length > 0
+        && book.entries.every((entry) => entry.id.startsWith('sample-'))
+        && book.accounts.every((account) => account.id.startsWith('sample-'));
     if (!empty && !onlySample) return book;
-    return { ...book, ...next, categories: [...starterCategories] };
+    return labelSampleEntries({ ...book, ...next, categories: [...starterCategories] });
+}
+
+export function releaseDisplay<T extends Pick<Book, 'accounts' | 'entries' | 'sampleCleared'>>(book: T): T {
+    const hasOwn = book.entries.some((entry) => !entry.id.startsWith('sample-')) || book.accounts.some((account) => !account.id.startsWith('sample-'));
+    if (!hasOwn) return book;
+    return {
+        ...book,
+        sampleCleared: true,
+        accounts: book.accounts.filter((account) => !account.id.startsWith('sample-')),
+        entries: book.entries.filter((entry) => !entry.id.startsWith('sample-')),
+    };
 }
 
 export function withoutSample(book: Book): Book {
@@ -219,11 +288,16 @@ export function emptyBook(): Book {
         categoryBudgets: {},
         templates: [],
         categories: [...starterCategories],
+        categoryMarks: {},
+        presetStamp: 2,
         accounts: [],
         entries: [],
         goals: [],
         hideAmounts: false,
         lockOnOpen: false,
+        dailyReminder: false,
+        reminderHour: 21,
+        reminderMinute: 30,
         removed: [],
     });
 }
@@ -240,10 +314,12 @@ export function loadBook(): Book {
         const stored = JSON.parse(raw) as Partial<Book> & { holdings?: unknown };
         const { holdings: _ignoredHoldings, ...parsed } = stored;
         if (!parsed || !Array.isArray(parsed.entries) || !Array.isArray(parsed.accounts)) return emptyBook();
-        return withSample({
+        return adoptCategories(withSample({
             ...emptyBook(),
             ...parsed,
             categories: parsed.categories?.length ? parsed.categories : [...starterCategories],
+            categoryMarks: parsed.categoryMarks && typeof parsed.categoryMarks === 'object' ? parsed.categoryMarks : {},
+            presetStamp: parsed.presetStamp === 2 ? 2 : 0,
             accounts: parsed.accounts.map((account) => ({
                 id: account.id,
                 name: account.name,
@@ -270,7 +346,7 @@ export function loadBook(): Book {
             monthlyBudget: typeof parsed.monthlyBudget === 'number' && parsed.monthlyBudget > 0 ? parsed.monthlyBudget : null,
             categoryBudgets: parsed.categoryBudgets && typeof parsed.categoryBudgets === 'object' ? parsed.categoryBudgets : {},
             templates: dedupeTemplates(Array.isArray(parsed.templates) ? parsed.templates : []),
-        });
+        }));
     } catch {
         return emptyBook();
     }
