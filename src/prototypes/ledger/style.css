@@ -1611,10 +1611,20 @@ select.ledger-field:focus {
   height: 22px;
 }
 
+.ledger-glyph-badge.is-row {
+  width: 40px;
+  height: 40px;
+}
+
 .ledger-glyph-badge.is-small svg,
 .ledger-rank-label .ledger-glyph-badge svg {
   width: 13px;
   height: 13px;
+}
+
+.ledger-glyph-badge.is-row svg {
+  width: 18px;
+  height: 18px;
 }
 
 .ledger-glyph-name {
@@ -3676,8 +3686,13 @@ button.ledger-spark-photo {
 }
 
 .ledger-spark-entry b {
+  flex: 1;
+  min-width: 0;
   font-size: 15px;
   font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ledger-spark-entry span {

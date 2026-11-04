@@ -2218,6 +2218,7 @@ export default function LedgerApp() {
                             entries={visibleEntries}
                             ledgerEntries={book.entries}
                             accounts={book.accounts}
+                            marks={book.categoryMarks}
                             mark={mark}
                             onPrev={() => setReportYear((value) => value - 1)}
                             onNext={() => setReportYear((value) => Math.min(value + 1, new Date().getFullYear()))}
@@ -2324,6 +2325,7 @@ export default function LedgerApp() {
                                     ))}
                                     {book.entries.filter((entry) => entry.date === day && !entry.id.startsWith('transfer-') && (sparkFilter !== 'all' || entryMatchesQuery(entry, sparkQuery))).map((entry) => (
                                         <button key={entry.id} type="button" className="ledger-spark-entry" onClick={() => openEntry(entry)}>
+                                            <CategoryBadge mark={categoryKey(entry.category, book.categoryMarks)} small />
                                             <b>{entry.title}</b>
                                             <span>{book.hideAmounts ? '***' : `${entry.direction === 'out' ? '−' : '+'}${money(entry.amount, mark)}`}</span>
                                         </button>
@@ -2432,7 +2434,7 @@ export default function LedgerApp() {
                                     </div>
                                     <ul className="ledger-tx-list">
                                         {reviewQueue.map((entry) => (
-                                            <TxRow key={entry.id} L={L} entry={entry} accounts={book.accounts} mark={mark} onOpen={openEntry} onToggle={toggleChecked} />
+                                            <TxRow key={entry.id} L={L} entry={entry} accounts={book.accounts} marks={book.categoryMarks} mark={mark} onOpen={openEntry} onToggle={toggleChecked} />
                                         ))}
                                     </ul>
                                 </section>
@@ -2550,7 +2552,7 @@ export default function LedgerApp() {
                                             {txView === 'list' && <p className="ledger-day-label">{dayLabel(day, locale, L)}</p>}
                                             <ul className="ledger-tx-list">
                                                 {shownEntries.filter((entry) => entry.date === day).map((entry) => (
-                                                    <TxRow key={entry.id} L={L} entry={entry} accounts={book.accounts} mark={mark} onOpen={openEntry} onToggle={toggleChecked} />
+                                                    <TxRow key={entry.id} L={L} entry={entry} accounts={book.accounts} marks={book.categoryMarks} mark={mark} onOpen={openEntry} onToggle={toggleChecked} />
                                                 ))}
                                             </ul>
                                         </div>
@@ -3094,13 +3096,12 @@ function SpendCalendar({
     );
 }
 
-function TxRow({ L, entry, accounts, mark, onOpen, onToggle }: { L: Copy; entry: Entry; accounts: Account[]; mark: string; onOpen: (entry: Entry) => void; onToggle: (id: string) => void }) {
+function TxRow({ L, entry, accounts, marks, mark, onOpen, onToggle }: { L: Copy; entry: Entry; accounts: Account[]; marks?: Record<string, string>; mark: string; onOpen: (entry: Entry) => void; onToggle: (id: string) => void }) {
     const account = accounts.find((item) => item.id === entry.accountId);
     const value = signedValue(entry);
-    const colorIndex = entry.category.charCodeAt(0) % sliceColors.length;
     return (
         <li className="ledger-tx">
-            <div className="ledger-tx-icon" style={{ background: `${sliceColors[colorIndex]}33` }}>{entry.category.slice(0, 1)}</div>
+            <CategoryBadge mark={categoryKey(entry.category, marks)} row />
             <button type="button" className="ledger-tx-main" onClick={() => onOpen(entry)}>
                 <b>{entry.title}</b>
                 <span>{[entry.category, account?.name?.trim() ?? '', entry.shared ? L.familyTag : ''].filter(Boolean).join(' · ')}</span>
@@ -3473,6 +3474,7 @@ function YearReportPanel({
     entries,
     ledgerEntries,
     accounts,
+    marks,
     mark,
     onPrev,
     onNext,
@@ -3486,6 +3488,7 @@ function YearReportPanel({
     entries: Entry[];
     ledgerEntries: Entry[];
     accounts: { id: string; name: string }[];
+    marks?: Record<string, string>;
     mark: string;
     onPrev: () => void;
     onNext: () => void;
@@ -3577,7 +3580,7 @@ function YearReportPanel({
                                 <div key={slice.id} className="ledger-year-cat">
                                     <div className="ledger-year-cat-row">
                                         <button type="button" className={open ? 'is-open' : ''} onClick={() => setOpenCategory(open ? '' : slice.id)}>
-                                            <i style={{ background: sliceColors[index % sliceColors.length] }} />
+                                            <CategoryBadge mark={categoryKey(slice.name, marks)} small />
                                             <span>{index + 1}. {slice.name} {percentLabel(slice.amount, total)}</span>
                                             <span className="ledger-chevron" aria-hidden="true">›</span>
                                         </button>
@@ -3591,7 +3594,7 @@ function YearReportPanel({
                                         <div className="ledger-year-tiles">
                                             {titles.map((item) => (
                                                 <button key={item.id} type="button" onClick={() => onOpen(kind, undefined, slice.name, item.name)}>
-                                                    <span className="ledger-year-mark">{item.name.slice(0, 1)}</span>
+                                                    <CategoryBadge mark={categoryKey(slice.name, marks)} small />
                                                     <span>{item.name}</span>
                                                     <MoneyAmount value={item.amount} mark={mark} size="sm" />
                                                 </button>

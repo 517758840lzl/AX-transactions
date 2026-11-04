@@ -93,9 +93,9 @@ export function CategorySvg({ name }: { name: string }) {
     }
 }
 
-export function CategoryBadge({ mark, selected, small }: { mark: string; selected?: boolean; small?: boolean }) {
+export function CategoryBadge({ mark, selected, small, row }: { mark: string; selected?: boolean; small?: boolean; row?: boolean }) {
     return (
-        <span className={`ledger-glyph-badge${selected ? ' is-on' : ''}${small ? ' is-small' : ''}`} style={{ ['--mark' as string]: categoryTone(mark) }}>
+        <span className={`ledger-glyph-badge${selected ? ' is-on' : ''}${small ? ' is-small' : ''}${row ? ' is-row' : ''}`} style={{ ['--mark' as string]: categoryTone(mark) }}>
             <CategorySvg name={mark} />
         </span>
     );
