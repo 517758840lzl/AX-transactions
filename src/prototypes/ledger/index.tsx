@@ -445,6 +445,10 @@ function accountPeriodFlow(accountId: string, entries: Entry[], start: string, e
     return { inflow, outflow, net: inflow - outflow };
 }
 
+function loggedDays(entries: Entry[]) {
+    return new Set(entries.filter((entry) => !entry.id.startsWith('sample-')).map((entry) => entry.date)).size;
+}
+
 function streakDays(entries: Entry[]) {
     const days = new Set(entries.map((entry) => entry.date));
     if (days.size === 0) return 0;
@@ -457,6 +461,50 @@ function streakDays(entries: Entry[]) {
         } else break;
     }
     return streak;
+}
+
+function RecordMarks({ days, L, onAdd }: { days: number; L: Copy; onAdd: () => void }) {
+    const [picked, setPicked] = useState<number | null>(null);
+    const steps = [1, 7, 30, 100, 365];
+    const names = [L.markFirst, L.markWeek, L.markMonth, L.markHundred, L.markYear];
+    const nextIndex = steps.findIndex((step) => days < step);
+    const focus = picked ?? (nextIndex === -1 ? steps.length - 1 : nextIndex);
+    const step = steps[focus];
+    const earned = days >= step;
+    const filled = Math.min(days, step);
+    const remain = step - days === 1 ? L.markRemain.replace('{count}', '1').replace('days', 'day') : L.markRemain.replace('{count}', String(step - days));
+    return (
+        <section className="ledger-card ledger-marks">
+            <div className="ledger-marks-kicker">{L.markTitle}</div>
+            <div className="ledger-marks-head">
+                <b>{names[focus]}</b>
+                <span className="ledger-marks-quota">{filled}/{step}</span>
+            </div>
+            <div className="ledger-marks-track" aria-hidden="true">
+                <i style={{ width: `${(filled / step) * 100}%` }} />
+            </div>
+            <div className="ledger-marks-foot">
+                <span>{earned ? L.markReached : remain}</span>
+                {!earned && <button type="button" className="ledger-marks-add" onClick={onAdd}>{L.entryNew}</button>}
+            </div>
+            <div className="ledger-marks-row">
+                {steps.map((item, index) => {
+                    const got = days >= item;
+                    return (
+                        <button
+                            key={item}
+                            type="button"
+                            className={`ledger-mark-step${got ? ' is-got' : ''}${index === focus ? ' is-on' : ''}`}
+                            onClick={() => setPicked(index)}
+                        >
+                            <span>{item}</span>
+                            <em>{names[index]}</em>
+                        </button>
+                    );
+                })}
+            </div>
+        </section>
+    );
 }
 
 function starterTitles(locale: Locale) {
@@ -1052,6 +1100,7 @@ export default function LedgerApp() {
     const suggestionTitles = useMemo(() => titleSuggestions(book.entries, locale), [book.entries, locale]);
     const orderedCategories = useMemo(() => categoriesByUsage(book.entries, book.categories), [book.entries, book.categories]);
     const logStreak = streakDays(book.entries);
+    const loggedDayCount = loggedDays(book.entries);
     const loggedToday = book.entries.some((entry) => entry.date === todayIso());
     const budget = book.monthlyBudget;
     const recurringItems = useMemo(() => detectRecurring(book.entries), [book.entries]);
@@ -2778,6 +2827,7 @@ export default function LedgerApp() {
                                     </span>
                                 </div>
                             </button>
+                            <RecordMarks days={loggedDayCount} L={L} onAdd={() => openEntry()} />
                             <section className="ledger-card ledger-spark-home">
                                 <div className="ledger-spark-home-head">
                                     <h2>{L.sparks}</h2>
