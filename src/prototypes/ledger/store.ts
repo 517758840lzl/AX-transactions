@@ -53,6 +53,36 @@ export type SavingGoal = {
     saved: number;
 };
 
+export type SparkKind = 'idea' | 'diary' | 'thought' | 'summary';
+
+export type Spark = {
+    id: string;
+    body: string;
+    /** Day the thought belongs to, yyyy-MM-dd. */
+    writtenOn: string;
+    kind: SparkKind;
+    tags: string[];
+    favorite: boolean;
+    image?: string;
+};
+
+export function parseSparkTags(raw: string) {
+    const seen = new Set<string>();
+    const tags: string[] = [];
+    for (const piece of raw.split(/[\s,，#]+/)) {
+        const tag = piece.trim();
+        if (!tag || tag.length > 20 || seen.has(tag)) continue;
+        seen.add(tag);
+        tags.push(tag);
+        if (tags.length === 8) break;
+    }
+    return tags;
+}
+
+export function sparkKindOf(raw: unknown): SparkKind {
+    return raw === 'diary' || raw === 'thought' || raw === 'summary' || raw === 'idea' ? raw : 'idea';
+}
+
 export type EntryTemplate = {
     id: string;
     title: string;
@@ -110,6 +140,7 @@ export type Book = {
     accounts: Account[];
     entries: Entry[];
     goals: SavingGoal[];
+    sparks: Spark[];
     sampleCleared?: boolean;
     /** True after they pick a language. Older books never had this. */
     localeChosen?: boolean;
@@ -293,6 +324,7 @@ export function emptyBook(): Book {
         accounts: [],
         entries: [],
         goals: [],
+        sparks: [],
         hideAmounts: false,
         lockOnOpen: false,
         dailyReminder: false,
@@ -307,10 +339,9 @@ export function normalizeCurrency(value: unknown): Currency {
     return currencyOptions.includes(value as Currency) ? (value as Currency) : 'USD';
 }
 
-export function loadBook(): Book {
+function bookFromRaw(raw: string | null): Book | null {
+    if (!raw) return null;
     try {
-        const raw = localStorage.getItem(storageKey);
-        if (!raw) return emptyBook();
         const stored = JSON.parse(raw) as Partial<Book> & { holdings?: unknown };
         const { holdings: _ignoredHoldings, ...parsed } = stored;
         if (!parsed || !Array.isArray(parsed.entries) || !Array.isArray(parsed.accounts)) return emptyBook();
@@ -337,6 +368,7 @@ export function loadBook(): Book {
                 splitGroup: typeof entry.splitGroup === 'string' ? entry.splitGroup : '',
             })),
             goals: parseGoals(parsed.goals),
+            sparks: parseSparks(parsed.sparks),
             removed: purgeRemoved(parseRemoved(parsed.removed)),
             lockOnOpen: parsed.lockOnOpen === true,
             sampleCleared: parsed.sampleCleared,
@@ -348,12 +380,75 @@ export function loadBook(): Book {
             templates: dedupeTemplates(Array.isArray(parsed.templates) ? parsed.templates : []),
         }));
     } catch {
-        return emptyBook();
+        return null;
+    }
+}
+
+export function loadBook(): Book {
+    return bookFromRaw(localStorage.getItem(storageKey)) ?? emptyBook();
+}
+
+const bookDbName = 'ledger-book';
+const bookStoreName = 'book';
+let bookWrite = Promise.resolve();
+let bookWriteTicket = 0;
+
+function openBookDb(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(bookDbName, 1);
+        request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(bookStoreName)) db.createObjectStore(bookStoreName);
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+function readBookRecord(db: IDBDatabase): Promise<Book | null> {
+    return new Promise((resolve, reject) => {
+        const request = db.transaction(bookStoreName).objectStore(bookStoreName).get(storageKey);
+        request.onsuccess = () => resolve(bookFromRaw(request.result ? JSON.stringify(request.result) : null));
+        request.onerror = () => reject(request.error);
+    });
+}
+
+function writeBookRecord(db: IDBDatabase, book: Book): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const request = db.transaction(bookStoreName, 'readwrite').objectStore(bookStoreName).put(book, storageKey);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
+export async function openStoredBook(): Promise<Book> {
+    try {
+        const db = await openBookDb();
+        const stored = await readBookRecord(db);
+        if (stored) return stored;
+        const legacy = loadBook();
+        await writeBookRecord(db, legacy);
+        localStorage.removeItem(storageKey);
+        return legacy;
+    } catch {
+        return loadBook();
     }
 }
 
 export function saveBook(book: Book) {
-    localStorage.setItem(storageKey, JSON.stringify(book));
+    const ticket = ++bookWriteTicket;
+    const snapshot = book;
+    bookWrite = bookWrite.then(async () => {
+        if (ticket !== bookWriteTicket) return;
+        try {
+            const db = await openBookDb();
+            if (ticket !== bookWriteTicket) return;
+            await writeBookRecord(db, snapshot);
+            localStorage.removeItem(storageKey);
+        } catch {
+            if (ticket === bookWriteTicket) localStorage.setItem(storageKey, JSON.stringify(snapshot));
+        }
+    });
 }
 
 export function createId() {
@@ -514,6 +609,28 @@ export function parseGoals(raw: unknown): SavingGoal[] {
             title,
             target: roundMoney(target),
             saved: roundMoney(saved),
+        });
+    }
+    return kept;
+}
+
+export function parseSparks(raw: unknown): Spark[] {
+    if (!Array.isArray(raw)) return [];
+    const kept: Spark[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const row = item as Partial<Spark>;
+        const body = String(row.body ?? '').trim();
+        const writtenOn = String(row.writtenOn ?? '');
+        if (!body || !/^\d{4}-\d{2}-\d{2}$/.test(writtenOn)) continue;
+        kept.push({
+            id: typeof row.id === 'string' && row.id ? row.id : createId(),
+            body: body.slice(0, 2000),
+            writtenOn,
+            kind: sparkKindOf(row.kind),
+            tags: parseSparkTags(Array.isArray(row.tags) ? row.tags.join(' ') : ''),
+            favorite: row.favorite === true,
+            image: typeof row.image === 'string' && row.image.startsWith('data:image/') ? row.image : undefined,
         });
     }
     return kept;

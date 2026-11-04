@@ -16,11 +16,13 @@ import {
     currencyMark,
     currencyOptions,
     emptyBook,
-    loadBook,
+    openStoredBook,
     normalizeAccountKind,
     normalizeClaim,
     normalizeCurrency,
     parseGoals,
+    parseSparks,
+    parseSparkTags,
     saveBook,
     moneyTyping,
     solveMoney,
@@ -42,6 +44,8 @@ import {
     type Entry,
     type Gender,
     type SavingGoal,
+    type Spark,
+    type SparkKind,
 } from './store';
 import { localeChoices, normalizeLocale, strings, type Copy, type Locale } from './i18n';
 import { CategoryBadge, CategoryGrid, CategoryMarkPicker, categoryKey } from './category-marks';
@@ -53,7 +57,7 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'sparks' | 'spark' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30;
@@ -110,6 +114,101 @@ const sliceColors = ['#E85D75', '#F4A261', '#E9C46A', '#C47B84', '#8D6E63', '#E8
 
 function todayIso() {
     return isoDate(new Date());
+}
+
+function yesterdayIso() {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return isoDate(date);
+}
+
+function sparkGroups(sparks: Spark[], L: Copy) {
+    const listed = [...sparks].sort((left, right) => (left.writtenOn === right.writtenOn ? (left.id < right.id ? 1 : -1) : left.writtenOn < right.writtenOn ? 1 : -1));
+    const groups: { day: string; label: string; items: Spark[] }[] = [];
+    for (const spark of listed) {
+        const label = spark.writtenOn === todayIso() ? L.dayToday : spark.writtenOn === yesterdayIso() ? L.dayYesterday : spark.writtenOn;
+        const last = groups[groups.length - 1];
+        if (last && last.day === spark.writtenOn) last.items.push(spark);
+        else groups.push({ day: spark.writtenOn, label, items: [spark] });
+    }
+    return groups;
+}
+
+const sparkKindOrder: SparkKind[] = ['idea', 'diary', 'thought', 'summary'];
+
+function sparkKindLabel(kind: SparkKind, L: Copy) {
+    if (kind === 'diary') return L.sparkDiary;
+    if (kind === 'thought') return L.sparkThought;
+    if (kind === 'summary') return L.sparkSummary;
+    return L.sparkIdea;
+}
+
+function sparkMatches(spark: Spark, query: string, L: Copy) {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    if (spark.body.toLowerCase().includes(needle)) return true;
+    if (spark.writtenOn.includes(needle)) return true;
+    if (sparkKindLabel(spark.kind, L).toLowerCase().includes(needle)) return true;
+    return spark.tags.some((tag) => tag.toLowerCase().includes(needle));
+}
+
+function entryMatchesQuery(entry: Entry, query: string) {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    return entry.title.toLowerCase().includes(needle) || entry.date.includes(needle);
+}
+
+function sparkTimelineDays(sparks: Spark[], entries: Entry[], query: string, includeEntryDays: boolean) {
+    const days = new Set(sparks.map((spark) => spark.writtenOn));
+    if (includeEntryDays) {
+        for (const entry of entries) {
+            if (entry.id.startsWith('transfer-')) continue;
+            if (!entryMatchesQuery(entry, query)) continue;
+            days.add(entry.date);
+        }
+    }
+    return [...days].sort((left, right) => (left < right ? 1 : -1));
+}
+
+function SparkCard({ spark, L, onOpen, onFavorite }: { spark: Spark; L: Copy; onOpen: () => void; onFavorite: () => void }) {
+    return (
+        <article className="ledger-spark-card">
+            <div className="ledger-spark-card-head">
+                <span>{sparkKindLabel(spark.kind, L)}</span>
+                <button type="button" aria-label={L.sparkFavorite} onClick={onFavorite}>{spark.favorite ? '★' : '☆'}</button>
+            </div>
+            <button type="button" className="ledger-spark-card-body" onClick={onOpen}>
+                {spark.image && <img src={spark.image} alt="" />}
+                <b>{spark.body}</b>
+                {spark.tags.length > 0 && <span className="ledger-spark-tags">{spark.tags.map((tag) => `#${tag}`).join(' ')}</span>}
+            </button>
+        </article>
+    );
+}
+
+function shrinkPicture(file: File): Promise<string> {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                const longest = Math.max(img.width, img.height);
+                const scale = longest > 1280 ? 1280 / longest : 1;
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(img.width * scale));
+                canvas.height = Math.max(1, Math.round(img.height * scale));
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    resolve('');
+                    return;
+                }
+                context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.72));
+            };
+            img.src = String(reader.result || '');
+        };
+        reader.readAsDataURL(file);
+    });
 }
 
 function isoDate(date: Date) {
@@ -805,11 +904,34 @@ export default function LedgerApp() {
     const [goalTitle, setGoalTitle] = useState('');
     const [goalTarget, setGoalTarget] = useState('');
     const [goalSaved, setGoalSaved] = useState('');
+    const [sparkId, setSparkId] = useState('');
+    const [sparkBody, setSparkBody] = useState('');
+    const [sparkDate, setSparkDate] = useState(todayIso);
+    const [sparkDraft, setSparkDraft] = useState('');
+    const [sparkDraftDate, setSparkDraftDate] = useState(todayIso);
+    const [sparkDraftKind, setSparkDraftKind] = useState<SparkKind>('idea');
+    const [sparkDraftTags, setSparkDraftTags] = useState('');
+    const [sparkDraftFavorite, setSparkDraftFavorite] = useState(false);
+    const [sparkDraftImage, setSparkDraftImage] = useState('');
+    const [sparkKind, setSparkKind] = useState<SparkKind>('idea');
+    const [sparkTags, setSparkTags] = useState('');
+    const [sparkFavorite, setSparkFavorite] = useState(false);
+    const [sparkImage, setSparkImage] = useState('');
+    const [pictureLook, setPictureLook] = useState('');
+    const [picturePull, setPicturePull] = useState(0);
+    const picturePullRef = useRef(0);
+    const pictureMoved = useRef(false);
+    const [sparkQuery, setSparkQuery] = useState('');
+    const [sparkFilter, setSparkFilter] = useState<'all' | SparkKind | 'favorite'>('all');
+    const [sparkTimeline, setSparkTimeline] = useState(false);
+    const [sparkHomeOpen, setSparkHomeOpen] = useState(false);
     const [notifyDenied, setNotifyDenied] = useState(false);
 
     useEffect(() => {
-        writeBook(loadBook());
-        setReady(true);
+        openStoredBook().then((loaded) => {
+            writeBook(loaded);
+            setReady(true);
+        });
     }, []);
 
     useEffect(() => {
@@ -1132,6 +1254,68 @@ export default function LedgerApp() {
             : [...book.goals, next];
         writeBook({ ...book, goals });
         setPanel('none');
+    }
+
+    function saveSparkDraft() {
+        const body = sparkDraft.trim();
+        if (!body) return;
+        const next: Spark = {
+            id: createId(),
+            body: body.slice(0, 2000),
+            writtenOn: sparkDraftDate || todayIso(),
+            kind: sparkDraftKind,
+            tags: parseSparkTags(sparkDraftTags),
+            favorite: sparkDraftFavorite,
+            image: sparkDraftImage || undefined,
+        };
+        writeBook({ ...book, sparks: [...book.sparks, next] });
+        setSparkDraft('');
+        setSparkDraftTags('');
+        setSparkDraftFavorite(false);
+        setSparkDraftImage('');
+        setSparkDraftDate(todayIso());
+    }
+
+    function openSpark(spark?: Spark) {
+        setSparkId(spark?.id ?? '');
+        setSparkBody(spark?.body ?? '');
+        setSparkDate(spark?.writtenOn ?? todayIso());
+        setSparkKind(spark?.kind ?? 'idea');
+        setSparkTags(spark?.tags.join(' ') ?? '');
+        setSparkFavorite(spark?.favorite === true);
+        setSparkImage(spark?.image ?? '');
+        setPanel('spark');
+    }
+
+    function saveSpark() {
+        const body = sparkBody.trim();
+        if (!body) return;
+        const next: Spark = {
+            id: sparkId || createId(),
+            body: body.slice(0, 2000),
+            writtenOn: sparkDate || todayIso(),
+            kind: sparkKind,
+            tags: parseSparkTags(sparkTags),
+            favorite: sparkFavorite,
+            image: sparkImage || undefined,
+        };
+        const sparks = sparkId
+            ? book.sparks.map((item) => (item.id === sparkId ? next : item))
+            : [...book.sparks, next];
+        writeBook({ ...book, sparks });
+        setPanel('sparks');
+    }
+
+    function toggleSparkFavorite(spark: Spark) {
+        writeBook({
+            ...book,
+            sparks: book.sparks.map((item) => (item.id === spark.id ? { ...item, favorite: !item.favorite } : item)),
+        });
+    }
+
+    function deleteSpark(id: string) {
+        writeBook({ ...book, sparks: book.sparks.filter((item) => item.id !== id) });
+        setPanel('sparks');
     }
 
     function depositTowardGoal() {
@@ -1496,6 +1680,7 @@ export default function LedgerApp() {
             })),
             entries: parsed.entries.map((entry) => ({ ...entry, claim: normalizeClaim(entry.claim) })),
             goals: parseGoals(parsed.goals),
+            sparks: parseSparks(parsed.sparks),
             locale: parsed.locale === 'zh' ? 'zh' : 'en',
             localeChosen: true,
             hideAmounts: parsed.hideAmounts === true,
@@ -1580,6 +1765,7 @@ export default function LedgerApp() {
             accounts: [],
             entries: [],
             goals: [],
+            sparks: [],
             removed: [],
             templates: [],
             monthlyBudget: null,
@@ -1652,6 +1838,40 @@ export default function LedgerApp() {
         if (panel !== 'none') setPanel('none');
     }
 
+    function pullPicture(event: React.PointerEvent<HTMLDivElement>) {
+        if (event.button !== 0) return;
+        if ((event.target as HTMLElement).closest('button')) return;
+        const startY = event.clientY;
+        const startX = event.clientX;
+        const move = (next: PointerEvent) => {
+            const dy = next.clientY - startY;
+            const dx = next.clientX - startX;
+            const pulled = dy > 8 && dy > Math.abs(dx) ? dy : 0;
+            picturePullRef.current = pulled;
+            setPicturePull(pulled);
+        };
+        const up = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            const pulled = picturePullRef.current;
+            pictureMoved.current = pulled > 8;
+            picturePullRef.current = 0;
+            setPicturePull(0);
+            if (pulled > 72) setPictureLook('');
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+    }
+
+    function closePicture(event: React.MouseEvent<HTMLDivElement>) {
+        if (pictureMoved.current) {
+            pictureMoved.current = false;
+            event.preventDefault();
+            return;
+        }
+        setPictureLook('');
+    }
+
     function edgeSwipe(event: React.PointerEvent<HTMLDivElement>) {
         if (panel === 'none' || event.button !== 0) return;
         const bounds = event.currentTarget.getBoundingClientRect();
@@ -1690,6 +1910,13 @@ export default function LedgerApp() {
         setPageHash(id);
     }
 
+    const visibleSparks = book.sparks.filter((spark) => {
+        if (sparkFilter === 'favorite' && !spark.favorite) return false;
+        if (sparkFilter !== 'all' && sparkFilter !== 'favorite' && spark.kind !== sparkFilter) return false;
+        return sparkMatches(spark, sparkQuery, L);
+    });
+    const sparkHomeList = [...book.sparks].sort((left, right) => (left.writtenOn === right.writtenOn ? (left.id < right.id ? 1 : -1) : left.writtenOn < right.writtenOn ? 1 : -1));
+    const sparkHomeShown = sparkHomeOpen ? sparkHomeList : sparkHomeList.slice(0, 3);
     const showFab = panel === 'none' && (active === 'dashboard' || active === 'transactions');
 
     return (
@@ -2049,6 +2276,100 @@ export default function LedgerApp() {
                             {goalId && <button type="button" className="ledger-text-button" onClick={() => deleteGoal(goalId)}>{L.deleteEntry}</button>}
                         </>
                     )}
+                    {panel === 'sparks' && (
+                        <>
+                            <SubpageHead L={L} title={L.sparks} onBack={() => setPanel('none')} />
+                            <div className="ledger-choice-row" role="tablist" aria-label={L.sparkIdea}>
+                                {sparkKindOrder.map((item) => (
+                                    <button key={item} type="button" className={sparkDraftKind === item ? 'is-on' : ''} onClick={() => setSparkDraftKind(item)}>{sparkKindLabel(item, L)}</button>
+                                ))}
+                            </div>
+                            <textarea className="ledger-writing" value={sparkDraft} maxLength={2000} rows={6} placeholder={L.sparkPlaceholder} autoFocus onChange={(event) => setSparkDraft(event.target.value)} />
+                            <label className="ledger-label" htmlFor="spark-draft-tags">{L.sparkTags}</label>
+                            <input id="spark-draft-tags" className="ledger-field" value={sparkDraftTags} placeholder={L.sparkTagHint} onChange={(event) => setSparkDraftTags(event.target.value)} />
+                            <DateField id="spark-draft-date" label={L.date} locale={locale} value={sparkDraftDate} max={todayIso()} onChange={setSparkDraftDate} L={L} />
+                            {sparkDraftImage && (
+                                <button type="button" className="ledger-spark-photo" aria-label={L.sparkPicture} onClick={() => setPictureLook(sparkDraftImage)}>
+                                    <img src={sparkDraftImage} alt="" />
+                                </button>
+                            )}
+                            {sparkDraftImage && <button type="button" className="ledger-text-button" onClick={() => setSparkDraftImage('')}>{L.sparkPictureRemove}</button>}
+                            <label className="ledger-pill ledger-pill-secondary">
+                                {L.sparkPicture}
+                                <input type="file" accept="image/*" hidden onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    if (file) void shrinkPicture(file).then((url) => { if (url) setSparkDraftImage(url); });
+                                    event.target.value = '';
+                                }} />
+                            </label>
+                            <button type="button" className="ledger-text-button" onClick={() => setSparkDraftFavorite((value) => !value)}>{sparkDraftFavorite ? `★ ${L.sparkFavorite}` : `☆ ${L.sparkFavorite}`}</button>
+                            <button type="button" className="ledger-pill" onClick={saveSparkDraft} disabled={!sparkDraft.trim()}>{L.save}</button>
+                            <input className="ledger-field" value={sparkQuery} placeholder={L.sparkSearch} onChange={(event) => setSparkQuery(event.target.value)} />
+                            <div className="ledger-choice-row" role="tablist" aria-label={L.sparks}>
+                                {(['all', ...sparkKindOrder, 'favorite'] as const).map((item) => (
+                                    <button key={item} type="button" className={sparkFilter === item ? 'is-on' : ''} onClick={() => setSparkFilter(item)}>
+                                        {item === 'all' ? L.filterAll : item === 'favorite' ? L.sparkFavorite : sparkKindLabel(item, L)}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="ledger-choice-row" role="tablist" aria-label={L.sparkTimeline}>
+                                <button type="button" className={!sparkTimeline ? 'is-on' : ''} onClick={() => setSparkTimeline(false)}>{L.sparkNotes}</button>
+                                <button type="button" className={sparkTimeline ? 'is-on' : ''} onClick={() => setSparkTimeline(true)}>{L.sparkTimeline}</button>
+                            </div>
+                            {sparkTimeline ? sparkTimelineDays(visibleSparks, book.entries, sparkQuery, sparkFilter === 'all').map((day) => (
+                                <section key={day} className="ledger-spark-day">
+                                    <h2>{day === todayIso() ? L.dayToday : day === yesterdayIso() ? L.dayYesterday : day}</h2>
+                                    {visibleSparks.filter((spark) => spark.writtenOn === day).map((spark) => (
+                                        <SparkCard key={spark.id} spark={spark} L={L} onOpen={() => openSpark(spark)} onFavorite={() => toggleSparkFavorite(spark)} />
+                                    ))}
+                                    {book.entries.filter((entry) => entry.date === day && !entry.id.startsWith('transfer-') && (sparkFilter !== 'all' || entryMatchesQuery(entry, sparkQuery))).map((entry) => (
+                                        <button key={entry.id} type="button" className="ledger-spark-entry" onClick={() => openEntry(entry)}>
+                                            <b>{entry.title}</b>
+                                            <span>{book.hideAmounts ? '***' : `${entry.direction === 'out' ? '−' : '+'}${money(entry.amount, mark)}`}</span>
+                                        </button>
+                                    ))}
+                                </section>
+                            )) : sparkGroups(visibleSparks, L).map((group) => (
+                                <section key={group.day} className="ledger-spark-day">
+                                    <h2>{group.label}</h2>
+                                    {group.items.map((spark) => (
+                                        <SparkCard key={spark.id} spark={spark} L={L} onOpen={() => openSpark(spark)} onFavorite={() => toggleSparkFavorite(spark)} />
+                                    ))}
+                                </section>
+                            ))}
+                        </>
+                    )}
+                    {panel === 'spark' && (
+                        <>
+                            <SubpageHead L={L} title={L.sparks} onBack={() => setPanel('sparks')} />
+                            <div className="ledger-choice-row" role="tablist" aria-label={L.sparkIdea}>
+                                {sparkKindOrder.map((item) => (
+                                    <button key={item} type="button" className={sparkKind === item ? 'is-on' : ''} onClick={() => setSparkKind(item)}>{sparkKindLabel(item, L)}</button>
+                                ))}
+                            </div>
+                            <textarea className="ledger-writing" value={sparkBody} maxLength={2000} rows={6} placeholder={L.sparkPlaceholder} autoFocus onChange={(event) => setSparkBody(event.target.value)} />
+                            <label className="ledger-label" htmlFor="spark-tags">{L.sparkTags}</label>
+                            <input id="spark-tags" className="ledger-field" value={sparkTags} placeholder={L.sparkTagHint} onChange={(event) => setSparkTags(event.target.value)} />
+                            <DateField id="spark-date" label={L.date} locale={locale} value={sparkDate} max={todayIso()} onChange={setSparkDate} L={L} />
+                            {sparkImage && (
+                                <button type="button" className="ledger-spark-photo" aria-label={L.sparkPicture} onClick={() => setPictureLook(sparkImage)}>
+                                    <img src={sparkImage} alt="" />
+                                </button>
+                            )}
+                            {sparkImage && <button type="button" className="ledger-text-button" onClick={() => setSparkImage('')}>{L.sparkPictureRemove}</button>}
+                            <label className="ledger-pill ledger-pill-secondary">
+                                {L.sparkPicture}
+                                <input type="file" accept="image/*" hidden onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    if (file) void shrinkPicture(file).then((url) => { if (url) setSparkImage(url); });
+                                    event.target.value = '';
+                                }} />
+                            </label>
+                            <button type="button" className="ledger-text-button" onClick={() => setSparkFavorite((value) => !value)}>{sparkFavorite ? `★ ${L.sparkFavorite}` : `☆ ${L.sparkFavorite}`}</button>
+                            <button type="button" className="ledger-pill" onClick={saveSpark} disabled={!sparkBody.trim()}>{L.save}</button>
+                            {sparkId && <button type="button" className="ledger-text-button" onClick={() => deleteSpark(sparkId)}>{L.deleteEntry}</button>}
+                        </>
+                    )}
                     {panel === 'filter' && (
                         <FilterPage
                             L={L}
@@ -2381,6 +2702,29 @@ export default function LedgerApp() {
                                     </span>
                                 </div>
                             </button>
+                            <section className="ledger-card ledger-spark-home">
+                                <div className="ledger-spark-home-head">
+                                    <h2>{L.sparks}</h2>
+                                    {book.sparks.length > 0 && (
+                                        <button type="button" className="ledger-spark-all" onClick={() => setPanel('sparks')}>
+                                            <span>{book.sparks.length}</span>
+                                            <span aria-hidden="true">›</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <button type="button" className="ledger-spark-prompt" onClick={() => setPanel('sparks')}>{L.sparkPlaceholder}</button>
+                                {sparkHomeShown.map((spark) => (
+                                    <button key={spark.id} type="button" className="ledger-spark-peek" onClick={() => openSpark(spark)}>
+                                        {spark.body.replace(/\s+/g, ' ')}
+                                    </button>
+                                ))}
+                                {sparkHomeList.length > 3 && (
+                                    <button type="button" className={`ledger-spark-more${sparkHomeOpen ? ' is-open' : ''}`} onClick={() => setSparkHomeOpen((open) => !open)}>
+                                        <span>{sparkHomeOpen ? L.yearFold : L.yearExpand}</span>
+                                        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                    </button>
+                                )}
+                            </section>
                             <section className="ledger-card ledger-settings">
                                 <h2 className="ledger-settings-kicker">{L.meLedger}</h2>
                                 <SettingsLink title={L.yearReport} onClick={openYear} />
@@ -2447,6 +2791,23 @@ export default function LedgerApp() {
                 </div>
 
                 {exportNote && <p className="ledger-toast" role="status">{exportNote}</p>}
+
+                {pictureLook && (
+                    <div
+                        className={`ledger-photo-view${picturePull > 0 ? ' is-pulling' : ''}`}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={L.sparkPicture}
+                        style={{ background: `rgba(11, 5, 29, ${Math.max(0.2, 1 - picturePull / 320)})` }}
+                        onPointerDown={pullPicture}
+                        onClick={closePicture}
+                    >
+                        <div className="ledger-photo-sheet" style={{ transform: `translateY(${picturePull}px)` }}>
+                            <button type="button" className="ledger-photo-view-close" onClick={() => setPictureLook('')}>{`×  ${L.done}`}</button>
+                            <img src={pictureLook} alt="" onClick={(event) => event.stopPropagation()} />
+                        </div>
+                    </div>
+                )}
 
                 {importAsk && (
                     <div className="ledger-modal-backdrop" role="presentation" onClick={() => setImportAsk(false)}>
