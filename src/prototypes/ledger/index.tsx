@@ -921,6 +921,7 @@ export default function LedgerApp() {
     const [picturePull, setPicturePull] = useState(0);
     const picturePullRef = useRef(0);
     const pictureMoved = useRef(false);
+    const sparkLaneDrag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
     const [sparkQuery, setSparkQuery] = useState('');
     const [sparkFilter, setSparkFilter] = useState<'all' | SparkKind | 'favorite'>('all');
     const [sparkTimeline, setSparkTimeline] = useState(false);
@@ -1919,6 +1920,34 @@ export default function LedgerApp() {
     const sparkHomeShown = sparkHomeOpen ? sparkHomeList : sparkHomeList.slice(0, 3);
     const showFab = panel === 'none' && (active === 'dashboard' || active === 'transactions');
 
+    function sparkLaneDown(event: React.PointerEvent<HTMLDivElement>) {
+        const row = event.currentTarget;
+        const drag = { x: event.clientX, left: row.scrollLeft, moved: false };
+        sparkLaneDrag.current = drag;
+        const move = (next: PointerEvent) => {
+            const dx = next.clientX - drag.x;
+            if (Math.abs(dx) > 4) drag.moved = true;
+            if (!drag.moved) return;
+            row.classList.add('is-dragging');
+            row.scrollLeft = drag.left - dx;
+        };
+        const up = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            row.classList.remove('is-dragging');
+            sparkLaneDrag.current = null;
+            if (!drag.moved) return;
+            const block = (click: Event) => {
+                click.preventDefault();
+                click.stopPropagation();
+                row.removeEventListener('click', block, true);
+            };
+            row.addEventListener('click', block, true);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+    }
+
     return (
         <AmountsHidden.Provider value={book.hideAmounts === true}>
         <main className="ledger">
@@ -2285,7 +2314,7 @@ export default function LedgerApp() {
                                     <button key={item} type="button" className={sparkDraftKind === item ? 'is-on' : ''} onClick={() => setSparkDraftKind(item)}>{sparkKindLabel(item, L)}</button>
                                 ))}
                             </div>
-                            <textarea className="ledger-writing" value={sparkDraft} maxLength={2000} rows={6} placeholder={L.sparkPlaceholder} autoFocus onChange={(event) => setSparkDraft(event.target.value)} />
+                            <textarea className="ledger-writing" value={sparkDraft} maxLength={2000} rows={6} placeholder={L.sparkPlaceholder} onChange={(event) => setSparkDraft(event.target.value)} />
                             <label className="ledger-label" htmlFor="spark-draft-tags">{L.sparkTags}</label>
                             <input id="spark-draft-tags" className="ledger-field" value={sparkDraftTags} placeholder={L.sparkTagHint} onChange={(event) => setSparkDraftTags(event.target.value)} />
                             <DateField id="spark-draft-date" label={L.date} locale={locale} value={sparkDraftDate} max={todayIso()} onChange={setSparkDraftDate} L={L} />
@@ -2305,17 +2334,37 @@ export default function LedgerApp() {
                             </label>
                             <button type="button" className="ledger-text-button" onClick={() => setSparkDraftFavorite((value) => !value)}>{sparkDraftFavorite ? `★ ${L.sparkFavorite}` : `☆ ${L.sparkFavorite}`}</button>
                             <button type="button" className="ledger-pill" onClick={saveSparkDraft} disabled={!sparkDraft.trim()}>{L.save}</button>
-                            <input className="ledger-field" value={sparkQuery} placeholder={L.sparkSearch} onChange={(event) => setSparkQuery(event.target.value)} />
-                            <div className="ledger-choice-row" role="tablist" aria-label={L.sparks}>
-                                {(['all', ...sparkKindOrder, 'favorite'] as const).map((item) => (
-                                    <button key={item} type="button" className={sparkFilter === item ? 'is-on' : ''} onClick={() => setSparkFilter(item)}>
-                                        {item === 'all' ? L.filterAll : item === 'favorite' ? L.sparkFavorite : sparkKindLabel(item, L)}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="ledger-choice-row" role="tablist" aria-label={L.sparkTimeline}>
-                                <button type="button" className={!sparkTimeline ? 'is-on' : ''} onClick={() => setSparkTimeline(false)}>{L.sparkNotes}</button>
-                                <button type="button" className={sparkTimeline ? 'is-on' : ''} onClick={() => setSparkTimeline(true)}>{L.sparkTimeline}</button>
+                            <div className="ledger-spark-board">
+                                <label className="ledger-spark-find">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M16 16l4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+                                    <input value={sparkQuery} placeholder={L.sparkSearch} onChange={(event) => setSparkQuery(event.target.value)} />
+                                </label>
+                                <div className="ledger-spark-mode" role="tablist" aria-label={L.sparkTimeline}>
+                                    <button type="button" className={!sparkTimeline ? 'is-on' : ''} onClick={() => setSparkTimeline(false)}>{L.sparkNotes}</button>
+                                    <button type="button" className={sparkTimeline ? 'is-on' : ''} onClick={() => setSparkTimeline(true)}>{L.sparkTimeline}</button>
+                                </div>
+                                <div
+                                    className="ledger-spark-filters"
+                                    role="tablist"
+                                    aria-label={L.sparks}
+                                    ref={(node) => {
+                                        if (!node || node.dataset.bound === '1') return;
+                                        node.dataset.bound = '1';
+                                        node.addEventListener('wheel', (event) => {
+                                            if (node.scrollWidth <= node.clientWidth) return;
+                                            if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+                                            node.scrollLeft += event.deltaX;
+                                            event.preventDefault();
+                                        }, { passive: false });
+                                    }}
+                                    onPointerDown={sparkLaneDown}
+                                >
+                                    {(['all', ...sparkKindOrder, 'favorite'] as const).map((item) => (
+                                        <button key={item} type="button" className={sparkFilter === item ? 'is-on' : ''} onClick={() => setSparkFilter(item)}>
+                                            {item === 'all' ? L.filterAll : item === 'favorite' ? `★ ${L.sparkFavorite}` : sparkKindLabel(item, L)}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                             {sparkTimeline ? sparkTimelineDays(visibleSparks, book.entries, sparkQuery, sparkFilter === 'all').map((day) => (
                                 <section key={day} className="ledger-spark-day">
@@ -2349,7 +2398,7 @@ export default function LedgerApp() {
                                     <button key={item} type="button" className={sparkKind === item ? 'is-on' : ''} onClick={() => setSparkKind(item)}>{sparkKindLabel(item, L)}</button>
                                 ))}
                             </div>
-                            <textarea className="ledger-writing" value={sparkBody} maxLength={2000} rows={6} placeholder={L.sparkPlaceholder} autoFocus onChange={(event) => setSparkBody(event.target.value)} />
+                            <textarea className="ledger-writing" value={sparkBody} maxLength={2000} rows={6} placeholder={L.sparkPlaceholder} onChange={(event) => setSparkBody(event.target.value)} />
                             <label className="ledger-label" htmlFor="spark-tags">{L.sparkTags}</label>
                             <input id="spark-tags" className="ledger-field" value={sparkTags} placeholder={L.sparkTagHint} onChange={(event) => setSparkTags(event.target.value)} />
                             <DateField id="spark-date" label={L.date} locale={locale} value={sparkDate} max={todayIso()} onChange={setSparkDate} L={L} />
