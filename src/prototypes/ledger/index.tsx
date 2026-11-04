@@ -536,6 +536,7 @@ function DateField({
     max,
     onChange,
     L,
+    invalid,
 }: {
     id?: string;
     label: string;
@@ -544,6 +545,7 @@ function DateField({
     max?: string;
     onChange: (value: string) => void;
     L: Copy;
+    invalid?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [cursor, setCursor] = useState(() => monthCursor(value));
@@ -566,7 +568,7 @@ function DateField({
             <button
                 type="button"
                 id={id}
-                className="ledger-field ledger-date-trigger"
+                className={`ledger-field ledger-date-trigger${invalid ? ' is-miss' : ''}`}
                 aria-label={label}
                 aria-haspopup="dialog"
                 aria-expanded={open}
@@ -632,12 +634,14 @@ function ChoiceMenu({
     value,
     options,
     onChange,
+    invalid,
 }: {
     id?: string;
     label: string;
     value: string;
     options: { value: string; label: string }[];
     onChange: (value: string) => void;
+    invalid?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const current = options.find((item) => item.value === value);
@@ -656,7 +660,7 @@ function ChoiceMenu({
             <button
                 type="button"
                 id={id}
-                className="ledger-field ledger-choice-trigger"
+                className={`ledger-field ledger-choice-trigger${invalid ? ' is-miss' : ''}`}
                 aria-label={label}
                 aria-haspopup="listbox"
                 aria-expanded={open}
@@ -2309,7 +2313,7 @@ export default function LedgerApp() {
                     {panel === 'sparks' && (
                         <>
                             <SubpageHead L={L} title={L.sparks} onBack={() => setPanel('none')} />
-                            <div className="ledger-choice-row" role="tablist" aria-label={L.sparkIdea}>
+                            <div className="ledger-choice-row ledger-spark-kinds" role="tablist" aria-label={L.sparkIdea}>
                                 {sparkKindOrder.map((item) => (
                                     <button key={item} type="button" className={sparkDraftKind === item ? 'is-on' : ''} onClick={() => setSparkDraftKind(item)}>{sparkKindLabel(item, L)}</button>
                                 ))}
@@ -2393,7 +2397,7 @@ export default function LedgerApp() {
                     {panel === 'spark' && (
                         <>
                             <SubpageHead L={L} title={L.sparks} onBack={() => setPanel('sparks')} />
-                            <div className="ledger-choice-row" role="tablist" aria-label={L.sparkIdea}>
+                            <div className="ledger-choice-row ledger-spark-kinds" role="tablist" aria-label={L.sparkIdea}>
                                 {sparkKindOrder.map((item) => (
                                     <button key={item} type="button" className={sparkKind === item ? 'is-on' : ''} onClick={() => setSparkKind(item)}>{sparkKindLabel(item, L)}</button>
                                 ))}
@@ -3825,6 +3829,24 @@ function FilterPage({ L, locale, scope, periodMode, rangeFrom, rangeTo, onScope,
     );
 }
 
+function revealGap(id: string) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    const previous = node.previousElementSibling;
+    const target = previous instanceof HTMLElement && previous.classList.contains('ledger-label') ? previous : node;
+    const scroller = node.closest('.ledger-body');
+    if (!(scroller instanceof HTMLElement)) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
+    const frame = scroller.getBoundingClientRect();
+    const head = target.getBoundingClientRect();
+    const foot = node.getBoundingClientRect();
+    const inView = head.top >= frame.top && foot.bottom <= frame.bottom - 8;
+    if (inView) return;
+    scroller.scrollTo({ top: Math.max(0, head.top - frame.top + scroller.scrollTop - 12), behavior: 'smooth' });
+}
+
 function EntryForm({
     L,
     locale,
@@ -3858,10 +3880,19 @@ function EntryForm({
 }) {
     const solved = solveMoney(draft.amount);
     const otherSolved = solveMoney(draft.otherAmount);
-    const amountOk = solved != null && solved > 0 && (!draft.splitOn || (otherSolved != null && otherSolved > 0));
+    const [tried, setTried] = useState(false);
     const refunded = draft.id ? book.entries.some((entry) => entry.refundOf === draft.id) : false;
     const source = book.entries.find((entry) => entry.id === draft.id);
     const accounts = openAccountList(book.accounts, draft.accountId);
+    const ownAccount = accounts.some((account) => account.id === draft.accountId && !account.id.startsWith('sample-'));
+    const gaps = [
+        !(solved != null && solved > 0) ? 'entry-amount' : '',
+        !draft.title.trim() ? 'entry-title' : '',
+        draft.splitOn && !draft.id && !(otherSolved != null && otherSolved > 0) ? 'entry-other' : '',
+        !draft.date ? 'entry-date' : '',
+        !draft.id && !ownAccount ? 'entry-account' : '',
+    ].filter(Boolean);
+    const mark = (id: string) => tried && gaps.includes(id);
     return (
         <>
             <SubpageHead L={L} title={draft.id ? L.entryEdit : L.entryNew} onBack={onBack} />
@@ -3870,9 +3901,9 @@ function EntryForm({
                 <button type="button" role="tab" aria-selected={draft.direction === 'in'} className={draft.direction === 'in' ? 'is-on' : ''} onClick={() => onChange({ ...draft, direction: 'in' })}>{L.income}</button>
             </div>
             <label className="ledger-label" htmlFor="entry-amount">{L.amount}</label>
-            <input id="entry-amount" className="ledger-field" inputMode="decimal" value={draft.amount} placeholder="0.00" onChange={(event) => onChange({ ...draft, amount: moneyTyping(event.target.value) })} />
+            <input id="entry-amount" className={`ledger-field${mark('entry-amount') ? ' is-miss' : ''}`} inputMode="decimal" value={draft.amount} placeholder="0.00" onChange={(event) => onChange({ ...draft, amount: moneyTyping(event.target.value) })} />
             <label className="ledger-label" htmlFor="entry-title">{L.name}</label>
-            <input id="entry-title" className="ledger-field" value={draft.title} placeholder={L.namePh} onChange={(event) => onChange({ ...draft, title: event.target.value })} />
+            <input id="entry-title" className={`ledger-field${mark('entry-title') ? ' is-miss' : ''}`} value={draft.title} placeholder={L.namePh} onChange={(event) => onChange({ ...draft, title: event.target.value })} />
             {titleSuggestions.length > 0 && (
                 <>
                     <p className="ledger-label">{L.titleSuggestions}</p>
@@ -3893,7 +3924,7 @@ function EntryForm({
             )}
             <Fold open={draft.splitOn && !draft.id}>
                 <label className="ledger-label" htmlFor="entry-other">{L.splitAmount}</label>
-                <input id="entry-other" className="ledger-field" inputMode="decimal" value={draft.otherAmount} placeholder="0.00" onChange={(event) => onChange({ ...draft, otherAmount: moneyTyping(event.target.value) })} />
+                <input id="entry-other" className={`ledger-field${mark('entry-other') ? ' is-miss' : ''}`} inputMode="decimal" value={draft.otherAmount} placeholder="0.00" onChange={(event) => onChange({ ...draft, otherAmount: moneyTyping(event.target.value) })} />
                 <p className="ledger-label">{L.category}</p>
                 <CategoryGrid names={categories} marks={book.categoryMarks} selected={draft.otherCategory} rows={4} addLabel={L.add} onAdd={onAddOtherCategory} onSelect={(name) => onChange({ ...draft, otherCategory: name })} />
                 <label className="ledger-check">
@@ -3902,12 +3933,12 @@ function EntryForm({
                 </label>
             </Fold>
             <label className="ledger-label" htmlFor="entry-date">{L.date}</label>
-            <DateField id="entry-date" label={L.date} locale={locale} value={draft.date} max={todayIso()} onChange={(date) => onChange({ ...draft, date })} L={L} />
+            <DateField id="entry-date" label={L.date} locale={locale} value={draft.date} max={todayIso()} onChange={(date) => onChange({ ...draft, date })} L={L} invalid={mark('entry-date')} />
             <label className="ledger-label" htmlFor="entry-account">{L.account}</label>
             {accounts.length > 0 ? (
-                <ChoiceMenu id="entry-account" label={L.account} value={draft.accountId} options={accounts.map((account) => ({ value: account.id, label: account.name }))} onChange={(accountId) => onChange({ ...draft, accountId })} />
+                <ChoiceMenu id="entry-account" label={L.account} value={draft.accountId} options={accounts.map((account) => ({ value: account.id, label: account.name }))} onChange={(accountId) => onChange({ ...draft, accountId })} invalid={mark('entry-account')} />
             ) : (
-                <div className="ledger-field is-still">{L.accountNone}</div>
+                <div id="entry-account" className={`ledger-field is-still${mark('entry-account') ? ' is-miss' : ''}`}>{L.accountNone}</div>
             )}
             {accounts.every((account) => account.id.startsWith('sample-')) && (
                 <button type="button" className="ledger-account-guide" onClick={onAddAccount}>
@@ -3938,7 +3969,7 @@ function EntryForm({
                     {draft.claim === 'done' ? L.claimDone : L.claimMark}
                 </label>
             </Fold>
-            <button type="button" className="ledger-pill" onClick={onSave} disabled={!draft.title.trim() || !amountOk || (!draft.id && (accounts.length === 0 || !draft.accountId))}>{L.save}</button>
+            <button type="button" className={gaps.length ? 'ledger-pill is-quiet' : 'ledger-pill'} onClick={() => { const first = gaps[0]; if (first) { setTried(true); revealGap(first); return; } onSave(); }}>{L.save}</button>
             {source && source.direction === 'out' && !source.refundOf && (
                 refunded
                     ? <p className="ledger-refund-done">{L.refundDone}</p>

@@ -774,7 +774,7 @@
 
 .ledger-filter-row {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -1422,6 +1422,11 @@ textarea.ledger-json {
   border-color: var(--pink);
 }
 
+.ledger-field.is-miss,
+.ledger-field.is-miss:focus {
+  border-color: #e85d75;
+}
+
 .ledger-field.is-still {
   display: flex;
   align-items: center;
@@ -1729,6 +1734,11 @@ select.ledger-field:focus {
   background: var(--pink);
   border-color: var(--pink);
   color: var(--ink);
+}
+
+.ledger-spark-kinds {
+  margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 .ledger-choice-row--3 button {
