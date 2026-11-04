@@ -3086,7 +3086,12 @@ function BookStats({
                     );
                 })}
             </div>
-            {total === 0 ? <p className="ledger-panel-note">{L.statsEmpty}</p> : (
+            {total === 0 ? (
+                <p className="ledger-stats-empty">
+                    <span>{L.statsEmpty}</span>
+                    <button type="button" onClick={() => openEntry()}>{L.statsEmptyAdd}</button>
+                </p>
+            ) : (
                 <>
                     <h2>{fillCopy(L.statsCompose, { when, kind: kindName })}</h2>
                     {mix.map((item) => (
@@ -3698,7 +3703,12 @@ function YearReportPanel({
             </button>
             <section className="ledger-year-card">
                 <h2>{L.yearClassify}</h2>
-                {slices.length === 0 ? <p className="ledger-year-empty">{L.statsEmpty}</p> : (
+                {slices.length === 0 ? (
+                    <p className="ledger-year-empty">
+                        <span>{L.statsEmpty}</span>
+                        <button type="button" onClick={() => openEntry()}>{L.statsEmptyAdd}</button>
+                    </p>
+                ) : (
                     <>
                         <YearDonut parts={slices.map((slice, index) => ({ name: slice.name, amount: slice.amount, color: sliceColors[index % sliceColors.length] }))} />
                         {slices.map((slice, index) => {

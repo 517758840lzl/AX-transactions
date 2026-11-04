@@ -607,6 +607,26 @@
   box-shadow: 0 10px 22px rgba(11, 5, 29, 0.12);
 }
 
+.ledger-stats-empty {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ledger-stats-empty button,
+.ledger-year-empty button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .ledger-panel-note {
   margin: 0 0 10px;
   font-size: 13px;
@@ -3218,9 +3238,11 @@ button.ledger-choice-trigger {
 }
 
 .ledger-year-empty {
+  display: flex;
+  justify-content: center;
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
