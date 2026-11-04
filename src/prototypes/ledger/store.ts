@@ -211,17 +211,6 @@ export const currencyMark: Record<Currency, string> = {
     CAD: 'C$',
 };
 
-function daysAgo(ago: number) {
-    const now = new Date();
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ago);
-    if (date.getMonth() !== now.getMonth()) {
-        date.setFullYear(now.getFullYear(), now.getMonth(), 1);
-    }
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    return `${date.getFullYear()}-${month}-${day}`;
-}
-
 const sampleNames: Record<string, { zh: string; en: string }> = {
     'sample-lunch': { zh: '午餐', en: 'Lunch' },
     'sample-coffee': { zh: '咖啡', en: 'Coffee' },
@@ -267,26 +256,8 @@ export function labelSampleEntries<T extends Pick<Book, 'entries' | 'locale' | '
     return changed ? { ...book, entries } : book;
 }
 
-function sampleBookParts(): Pick<Book, 'accounts' | 'entries'> {
-    return {
-        accounts: [],
-        entries: [
-            { id: 'sample-lunch', title: 'Lunch', amount: 18.4, direction: 'out', category: 'Dining', date: daysAgo(0), accountId: 'sample-show', shared: false, checked: false },
-            { id: 'sample-coffee', title: 'Coffee', amount: 6.5, direction: 'out', category: 'Dining', date: daysAgo(1), accountId: 'sample-show', shared: true, checked: true },
-            { id: 'sample-metro', title: 'Metro', amount: 2.75, direction: 'out', category: 'Transit', date: daysAgo(0), accountId: 'sample-show', shared: false, checked: true },
-        ],
-    };
-}
-
 export function withSample(book: Book): Book {
-    if (book.sampleCleared) return book;
-    const next = sampleBookParts();
-    const empty = book.accounts.length === 0 && book.entries.length === 0;
-    const onlySample = book.entries.length > 0
-        && book.entries.every((entry) => entry.id.startsWith('sample-'))
-        && book.accounts.every((account) => account.id.startsWith('sample-'));
-    if (!empty && !onlySample) return book;
-    return labelSampleEntries({ ...book, ...next, categories: [...starterCategories] });
+    return withoutSample(book);
 }
 
 export function releaseDisplay<T extends Pick<Book, 'accounts' | 'entries' | 'sampleCleared'>>(book: T): T {

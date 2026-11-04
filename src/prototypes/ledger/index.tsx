@@ -985,10 +985,10 @@ export default function LedgerApp() {
         () => book.entries.filter((entry) => (scope === 'family' ? entry.shared : !entry.shared)),
         [book.entries, scope],
     );
-    const reviewQueue = [...visibleEntries].filter((entry) => !entry.checked).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+    const reviewQueue = [...visibleEntries].filter((entry) => !entry.checked && !entry.id.startsWith('sample-')).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
     const bounds = periodBounds(periodMode, rangeFrom, rangeTo);
     const periodSource = listAll ? book.entries : visibleEntries;
-    const periodEntries = periodSource.filter((entry) => entry.date >= bounds.start && entry.date <= bounds.end);
+    const periodEntries = periodSource.filter((entry) => entry.date >= bounds.start && entry.date <= bounds.end && !entry.id.startsWith('sample-'));
     const periodOut = periodEntries.filter((entry) => isSpend(entry)).reduce((sum, entry) => sum + entry.amount, 0);
     const periodIn = periodEntries.filter((entry) => isIncome(entry)).reduce((sum, entry) => sum + entry.amount, 0);
     const spendParts = [...new Set(periodEntries.filter((entry) => isSpend(entry)).map((entry) => entry.category))].map((name, index) => ({
@@ -1038,6 +1038,7 @@ export default function LedgerApp() {
     const prevMonthOutByCategory = useMemo(() => {
         const map = new Map<string, number>();
         for (const entry of visibleEntries) {
+            if (entry.id.startsWith('sample-')) continue;
             if (!isSpend(entry)) continue;
             if (entry.date < prevMonth.start || entry.date > prevMonth.end) continue;
             map.set(entry.category, (map.get(entry.category) ?? 0) + entry.amount);
@@ -1065,7 +1066,7 @@ export default function LedgerApp() {
     const ownWorthPrior = bookNetWorthOnDate(ownAccounts, book.entries, isoBefore(accountsWindowFrom));
     const monthOutAll = monthMoves.filter((entry) => entry.direction === 'out').reduce((sum, entry) => sum + entry.amount, 0);
     const monthInAll = monthMoves.filter((entry) => entry.direction === 'in').reduce((sum, entry) => sum + entry.amount, 0);
-    const waitingClaims = visibleEntries.filter((entry) => normalizeClaim(entry.claim) === 'waiting' && entry.direction === 'out');
+    const waitingClaims = visibleEntries.filter((entry) => !entry.id.startsWith('sample-') && normalizeClaim(entry.claim) === 'waiting' && entry.direction === 'out');
     const spendByDay = useMemo(() => {
         const map = new Map<string, number>();
         for (const entry of periodEntries) {
@@ -2248,7 +2249,7 @@ export default function LedgerApp() {
                         <YearReportPanel
                             L={L}
                             year={reportYear}
-                            entries={visibleEntries}
+                            entries={visibleEntries.filter((entry) => !entry.id.startsWith('sample-'))}
                             ledgerEntries={book.entries}
                             accounts={book.accounts}
                             marks={book.categoryMarks}
@@ -2451,7 +2452,7 @@ export default function LedgerApp() {
                             </div>
                             <BookStats
                                 L={L}
-                                entries={visibleEntries}
+                                entries={visibleEntries.filter((entry) => !entry.id.startsWith('sample-'))}
                                 mark={mark}
                                 marks={book.categoryMarks}
                                 annual={statsAnnual}
@@ -2481,7 +2482,7 @@ export default function LedgerApp() {
                             )}
                             {reviewQueue.length > 0 && (
                                 <section className="ledger-panel">
-                                    <div className="ledger-panel-head">
+                                    <div className="ledger-panel-head ledger-review-head">
                                         <h2>{L.toReview} · {reviewQueue.length}</h2>
                                         <button type="button" className="ledger-mark-all" onClick={() => markReviewed(reviewQueue.map((entry) => entry.id))}>{L.markAllReviewed}</button>
                                     </div>
@@ -2514,7 +2515,18 @@ export default function LedgerApp() {
                                     <p className="ledger-panel-note">{L.recurringEmpty}</p>
                                 )}
                             </section>
-                            <SampleNote L={L} book={book} onClear={clearSample} />
+                            {visibleEntries.every((entry) => entry.id.startsWith('sample-')) && (
+                                <button type="button" className="ledger-overview-add" onClick={() => openEntry()}>
+                                    <span aria-hidden="true">
+                                        <svg viewBox="0 0 22 24">
+                                            <rect x="0" y="13" width="5" height="11" rx="1.4" />
+                                            <rect x="8.5" y="7" width="5" height="17" rx="1.4" />
+                                            <rect x="17" y="0" width="5" height="24" rx="1.4" />
+                                        </svg>
+                                    </span>
+                                    {L.statsQuiet}
+                                </button>
+                            )}
                         </>
                     )}
 
@@ -2595,7 +2607,17 @@ export default function LedgerApp() {
                                     <span className="ledger-topbar-meta">{L.periodSpend} <MoneyAmount value={periodOut} mark={mark} size="sm" /> · {L.periodIncome} <MoneyAmount value={periodIn} mark={mark} size="sm" /></span>
                                 </div>
                                 {shownEntries.length === 0 ? (
-                                    <p className="ledger-panel-note">{L.txEmpty}</p>
+                                    <div className="ledger-empty">
+                                        <span className="ledger-empty-mark" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M7.2 3.8h6.4L18.8 9v10.2a1.4 1.4 0 0 1-1.4 1.4H7.2a1.4 1.4 0 0 1-1.4-1.4V5.2a1.4 1.4 0 0 1 1.4-1.4z" />
+                                                <path d="M13.4 3.8V9h5.4" />
+                                                <path d="M8.6 12.6h6.8M8.6 16h6.8" />
+                                            </svg>
+                                        </span>
+                                        <p>{L.txEmpty}</p>
+                                        <button type="button" className="ledger-pill" onClick={() => openEntry()}>{L.entryNew}</button>
+                                    </div>
                                 ) : (
                                     (txView === 'calendar' && calendarDay
                                         ? [calendarDay]
@@ -2612,7 +2634,6 @@ export default function LedgerApp() {
                                     ))
                                 )}
                             </section>
-                            <SampleNote L={L} book={book} onClear={clearSample} />
                         </>
                     )}
 
@@ -2973,7 +2994,7 @@ function BookStats({
 
     return (
         <section className="ledger-stats">
-            <div className="ledger-stats-tabs" role="tablist">
+            <div className="ledger-segment" role="tablist" aria-label={L.statsMonthly}>
                 <button type="button" role="tab" aria-selected={!annual} className={annual ? '' : 'is-on'} onClick={() => onAnnual(false)}>{L.statsMonthly}</button>
                 <button type="button" role="tab" aria-selected={annual} className={annual ? 'is-on' : ''} onClick={() => onAnnual(true)}>{L.statsAnnual}</button>
             </div>
@@ -2990,8 +3011,8 @@ function BookStats({
                 </div>
             </div>
             <button type="button" className={total > 0 ? 'ledger-stats-total' : 'ledger-stats-total is-quiet'} onClick={() => onOpen(span.start, span.end, '', '')}>
-                <span>{fillCopy(L.statsCount, { count: String(inWindow.length), kind: kindName })}</span>
-                <MoneyAmount value={total} mark={mark} size="hero" />
+                <MoneyAmount value={total} mark={mark} size="md" />
+                <span>({fillCopy(L.statsCount, { count: String(inWindow.length), kind: kindName })})</span>
             </button>
             <h2 className={total > 0 ? undefined : 'is-quiet'}>{fillCopy(annual ? L.statsCompareYear : L.statsCompareMonth, { kind: kindName })}</h2>
             <div className="ledger-stats-bars">
@@ -3015,28 +3036,32 @@ function BookStats({
                     );
                 })}
             </div>
-            <h2 className={total > 0 ? undefined : 'is-quiet'}>{fillCopy(L.statsCompose, { when, kind: kindName })}</h2>
-            {mix.length === 0 ? <p className="ledger-panel-note">{L.statsEmpty}</p> : mix.map((item) => (
-                <button key={item.name} type="button" className="ledger-mix" onClick={() => onOpen(span.start, span.end, item.name, '')}>
-                    <span className="ledger-mix-head">
-                        <CategoryBadge mark={categoryKey(item.name, marks)} small />
-                        <b>{item.name}</b>
-                        <MoneyAmount value={item.amount} mark={mark} size="sm" />
-                        <span aria-hidden="true">›</span>
-                    </span>
-                    <span className="ledger-mix-track" aria-hidden="true"><i style={{ width: `${Math.max(6, (item.amount / (mix[0]?.amount || 1)) * 100)}%` }} /></span>
-                </button>
-            ))}
-            <h2 className={total > 0 ? undefined : 'is-quiet'}>{fillCopy(L.statsRank, { when, kind: kindName })}</h2>
-            {rank.length === 0 ? <p className="ledger-panel-note">{L.statsEmpty}</p> : rank.map((item, index) => (
-                <button key={item.name} type="button" className="ledger-rank-row" onClick={() => onOpen(span.start, span.end, '', item.name)}>
-                    <span className="ledger-rank-no">{index + 1}</span>
-                    <span className="ledger-tx-icon" style={{ background: `${sliceColors[index % sliceColors.length]}33` }}>{item.name.slice(0, 1)}</span>
-                    <b>{item.name}</b>
-                    <MoneyAmount value={item.amount} mark={mark} size="sm" />
-                    <span aria-hidden="true">›</span>
-                </button>
-            ))}
+            {total === 0 ? <p className="ledger-panel-note">{L.statsEmpty}</p> : (
+                <>
+                    <h2>{fillCopy(L.statsCompose, { when, kind: kindName })}</h2>
+                    {mix.map((item) => (
+                        <button key={item.name} type="button" className="ledger-mix" onClick={() => onOpen(span.start, span.end, item.name, '')}>
+                            <span className="ledger-mix-head">
+                                <CategoryBadge mark={categoryKey(item.name, marks)} small />
+                                <b>{item.name}</b>
+                                <MoneyAmount value={item.amount} mark={mark} size="sm" />
+                                <span aria-hidden="true">›</span>
+                            </span>
+                            <span className="ledger-mix-track" aria-hidden="true"><i style={{ width: `${Math.max(6, (item.amount / (mix[0]?.amount || 1)) * 100)}%` }} /></span>
+                        </button>
+                    ))}
+                    <h2>{fillCopy(L.statsRank, { when, kind: kindName })}</h2>
+                    {rank.map((item, index) => (
+                        <button key={item.name} type="button" className="ledger-rank-row" onClick={() => onOpen(span.start, span.end, '', item.name)}>
+                            <span className="ledger-rank-no">{index + 1}</span>
+                            <span className="ledger-tx-icon" style={{ background: `${sliceColors[index % sliceColors.length]}33` }}>{item.name.slice(0, 1)}</span>
+                            <b>{item.name}</b>
+                            <MoneyAmount value={item.amount} mark={mark} size="sm" />
+                            <span aria-hidden="true">›</span>
+                        </button>
+                    ))}
+                </>
+            )}
         </section>
     );
 }
