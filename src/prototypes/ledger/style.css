@@ -2878,6 +2878,17 @@ button.ledger-card.ledger-profile {
   cursor: pointer;
 }
 
+.ledger-cloud-page .ledger-cloud-status {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ledger-cloud-page .ledger-pill {
+  margin-top: 18px;
+}
+
 .ledger-pill-secondary {
   margin-top: 10px;
   background: #fff;

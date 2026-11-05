@@ -57,7 +57,7 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'sparks' | 'spark' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'sparks' | 'spark' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder' | 'cloud';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30;
@@ -906,6 +906,8 @@ export default function LedgerApp() {
     const [pageMotion, setPageMotion] = useState<'forward' | 'back' | 'fade'>('fade');
     const pageMotionRef = useRef<'forward' | 'back' | 'fade'>('fade');
     const [clearAsk, setClearAsk] = useState(false);
+    const [cloudWhen, setCloudWhen] = useState('');
+    const [cloudAsk, setCloudAsk] = useState(false);
     const [importAsk, setImportAsk] = useState(false);
     const [pendingImport, setPendingImport] = useState<Partial<Book> | null>(null);
     const importFileRef = useRef<HTMLInputElement>(null);
@@ -2173,6 +2175,18 @@ export default function LedgerApp() {
                             <button type="button" className="ledger-pill" onClick={saveProfile} disabled={!draftName.trim()}>{L.save}</button>
                         </div>
                     )}
+                    {panel === 'cloud' && (
+                        <div className="ledger-cloud-page">
+                            <SubpageHead L={L} title={L.cloudTitle} onBack={() => setPanel('none')} />
+                            <p className="ledger-cloud-status">{cloudWhen ? L.cloudWhenLine.replace('{time}', cloudWhen) : L.cloudNone}</p>
+                            <button type="button" className="ledger-pill" onClick={() => {
+                                const when = new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : 'en', { dateStyle: 'short', timeStyle: 'short' }).format(new Date());
+                                setCloudWhen(when);
+                                flashExportNote(L.cloudSaved);
+                            }}>{L.cloudSave}</button>
+                            <button type="button" className="ledger-pill ledger-pill-secondary" onClick={() => setCloudAsk(true)}>{L.cloudBring}</button>
+                        </div>
+                    )}
                     {panel === 'export' && (
                         <>
                             <SubpageHead L={L} title={L.dataManage} onBack={() => setPanel('none')} />
@@ -2876,6 +2890,8 @@ export default function LedgerApp() {
                             </section>
                             <section className="ledger-card ledger-settings">
                                 <h2 className="ledger-settings-kicker">{L.meData}</h2>
+                                <SettingsLink title={L.cloudTitle} value={cloudWhen || L.cloudNone} onClick={() => setPanel('cloud')} />
+                                <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.exportData} onClick={() => setPanel('export')} />
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.importData} onClick={() => importFileRef.current?.click()} />
@@ -2943,6 +2959,19 @@ export default function LedgerApp() {
                             <div className="ledger-modal-actions">
                                 <button type="button" onClick={() => setImportAsk(false)}>{L.cancel}</button>
                                 <button type="button" className="is-danger" onClick={confirmImportBook}>{L.importData}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {cloudAsk && (
+                    <div className="ledger-modal-backdrop" role="presentation" onClick={() => setCloudAsk(false)}>
+                        <div className="ledger-modal" role="dialog" aria-modal="true" aria-labelledby="ledger-cloud-title" onClick={(event) => event.stopPropagation()}>
+                            <h2 id="ledger-cloud-title">{L.cloudBring}</h2>
+                            <p>{L.cloudBringAsk}</p>
+                            <div className="ledger-modal-actions">
+                                <button type="button" onClick={() => setCloudAsk(false)}>{L.cancel}</button>
+                                <button type="button" className="is-danger" onClick={() => { setCloudAsk(false); flashExportNote(L.cloudBrought); }}>{L.cloudBring}</button>
                             </div>
                         </div>
                     </div>
