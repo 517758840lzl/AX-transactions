@@ -4,6 +4,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import brandMark from './assets/brand-mark.png';
+import entryBook from './assets/entry-book.png';
+import bannerBars from './assets/banner-bars.png';
+import bannerRing from './assets/banner-ring.png';
+import emptyNote from './assets/empty-note.png';
+import tabOverview from './assets/tab-overview.png';
+import tabLedger from './assets/tab-ledger.png';
+import tabAccounts from './assets/tab-accounts.png';
+import tabProfile from './assets/tab-profile.png';
 import { defineHashPageRoute, useHashPage } from '../../common/useHashPage';
 import {
     accountBalanceOnDate,
@@ -741,12 +749,12 @@ function ChoiceMenu({
     );
 }
 
-function ledgerTabs(L: Copy): { id: PageId; title: string; icon: React.ReactNode }[] {
+function ledgerTabs(L: Copy): { id: PageId; title: string; icon: string }[] {
     return [
-        { id: 'dashboard', title: L.tabDashboard, icon: <IconDashboard /> },
-        { id: 'transactions', title: L.tabTransactions, icon: <IconTransactions /> },
-        { id: 'accounts', title: L.tabAccounts, icon: <IconAccounts /> },
-        { id: 'me', title: L.tabMe, icon: <IconMe /> },
+        { id: 'dashboard', title: L.tabDashboard, icon: tabOverview },
+        { id: 'transactions', title: L.tabTransactions, icon: tabLedger },
+        { id: 'accounts', title: L.tabAccounts, icon: tabAccounts },
+        { id: 'me', title: L.tabMe, icon: tabProfile },
     ];
 }
 
@@ -799,43 +807,6 @@ function SettingsLink({ title, value, danger, onClick }: { title: string; value?
                 <span className="ledger-chevron" aria-hidden="true">›</span>
             </span>
         </button>
-    );
-}
-
-function IconDashboard() {
-    return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="3" width="8" height="8" rx="2" />
-            <rect x="13" y="3" width="8" height="5" rx="2" />
-            <rect x="13" y="10" width="8" height="11" rx="2" />
-            <rect x="3" y="13" width="8" height="8" rx="2" />
-        </svg>
-    );
-}
-
-function IconTransactions() {
-    return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 7h14M5 12h14M5 17h14" />
-        </svg>
-    );
-}
-
-function IconAccounts() {
-    return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="4" y="6" width="16" height="12" rx="3" />
-            <path d="M4 10h16" />
-        </svg>
-    );
-}
-
-function IconMe() {
-    return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="8" r="3.2" />
-            <path d="M5.5 19.2c1.4-3 3.6-4.4 6.5-4.4s5.1 1.4 6.5 4.4" />
-        </svg>
     );
 }
 
@@ -2526,6 +2497,24 @@ export default function LedgerApp() {
                                 onMonth={setStatsMonth}
                                 onOpen={openStatsFeed}
                             />
+                            {visibleEntries.every((entry) => entry.id.startsWith('sample-')) && (
+                                <div className="ledger-home-banners">
+                                    <button type="button" className="ledger-home-banner is-wash" onClick={() => openEntry()}>
+                                        <span>
+                                            <b>{L.bannerEntryTitle}</b>
+                                            <p>{L.bannerEntryNote}</p>
+                                        </span>
+                                        <img className="ledger-home-banner-art" src={bannerBars} alt="" />
+                                    </button>
+                                    <button type="button" className="ledger-home-banner" onClick={openBudgetPanel}>
+                                        <span>
+                                            <b>{L.bannerBudgetTitle}</b>
+                                            <p>{L.bannerBudgetNote}</p>
+                                        </span>
+                                        <img className="ledger-home-banner-art" src={bannerRing} alt="" />
+                                    </button>
+                                </div>
+                            )}
                             {waitingClaims.length > 0 && (
                                 <section className="ledger-panel">
                                     <div className="ledger-panel-head">
@@ -2578,18 +2567,6 @@ export default function LedgerApp() {
                                     <p className="ledger-panel-note">{L.recurringEmpty}</p>
                                 )}
                             </section>
-                            {visibleEntries.every((entry) => entry.id.startsWith('sample-')) && (
-                                <button type="button" className="ledger-overview-add" onClick={() => openEntry()}>
-                                    <span aria-hidden="true">
-                                        <svg viewBox="0 0 22 24">
-                                            <rect x="0" y="13" width="5" height="11" rx="1.4" />
-                                            <rect x="8.5" y="7" width="5" height="17" rx="1.4" />
-                                            <rect x="17" y="0" width="5" height="24" rx="1.4" />
-                                        </svg>
-                                    </span>
-                                    {L.statsQuiet}
-                                </button>
-                            )}
                         </>
                     )}
 
@@ -2920,14 +2897,7 @@ export default function LedgerApp() {
 
                 {showFab && (
                     <button type="button" className="ledger-fab" aria-label={L.fabLabel} onClick={() => openEntry()}>
-                        <svg viewBox="0 0 32 32" aria-hidden="true">
-                            <rect x="4" y="18.2" width="24" height="6.2" rx="3" fill="#EC82A2" />
-                            <path fill="#fff" d="M6.6 11Q6.6 8.6 9 8.6L15.1 9.2V21.4Q11 22.2 6.6 20.6Z" />
-                            <path fill="#fff" d="M16.9 9.2L23 8.6Q25.4 8.6 25.4 11V20.6Q21 22.2 16.9 21.4Z" />
-                            <path fill="#F28AAB" d="M14.45 8.9h3.1V14.2L16 12.55l-1.55 1.65Z" />
-                            <path d="M18.6 18.8C20.4 18.2 21.8 15 23.15 12.35" fill="none" stroke="#E85D75" strokeWidth="1.7" strokeLinecap="round" />
-                            <circle cx="23.15" cy="11.35" r="1.45" fill="#E85D75" />
-                        </svg>
+                        <img src={entryBook} alt="" />
                     </button>
                 )}
                 </div>
@@ -2994,7 +2964,9 @@ export default function LedgerApp() {
                     <nav className="ledger-tabs" aria-label={L.mainNav}>
                         {tabs.map((tab) => (
                             <button key={tab.id} type="button" className={active === tab.id ? 'is-on' : ''} aria-current={active === tab.id ? 'page' : undefined} onClick={() => goTab(tab.id)}>
-                                {tab.icon}
+                                <i className="ledger-tab-chip">
+                                    <i className="ledger-tab-mark" style={{ WebkitMaskImage: `url(${tab.icon})`, maskImage: `url(${tab.icon})` }} />
+                                </i>
                                 <span>{tab.title}</span>
                             </button>
                         ))}
@@ -3117,6 +3089,7 @@ function BookStats({
             </div>
             {total === 0 ? (
                 <p className="ledger-stats-empty">
+                    <img className="ledger-stats-empty-mark" src={emptyNote} alt="" />
                     <span>{L.statsEmpty}</span>
                     <button type="button" onClick={() => openEntry()}>{L.statsEmptyAdd}</button>
                 </p>

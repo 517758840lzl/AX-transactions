@@ -609,11 +609,20 @@
 
 .ledger-stats-empty {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 6px;
   margin: 10px 0 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
+}
+
+.ledger-stats-empty-mark {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  object-fit: contain;
 }
 
 .ledger-stats-empty button,
@@ -621,7 +630,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--ink);
+  color: inherit;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -1353,10 +1362,11 @@ div.ledger-worth-open {
   z-index: 2;
 }
 
-.ledger-fab svg {
-  width: 34px;
-  height: 34px;
+.ledger-fab img {
+  width: 36px;
+  height: 36px;
   display: block;
+  object-fit: contain;
 }
 
 .ledger-tabs {
@@ -1393,25 +1403,36 @@ div.ledger-worth-open {
   font-size: clamp(9px, 2.8vw, 11px);
 }
 
-.ledger-tabs button svg {
-  width: 22px;
-  height: 22px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .ledger-tabs button.is-on {
   color: var(--ink);
 }
 
-.ledger-tabs button.is-on svg {
-  background: var(--pink);
+.ledger-tab-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-style: normal;
+}
+
+.ledger-tabs button.is-on .ledger-tab-chip {
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
-  padding: 4px;
-  box-sizing: content-box;
+  background: var(--pink);
+}
+
+.ledger-tab-mark {
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
 }
 
 textarea.ledger-json {
@@ -4243,35 +4264,55 @@ label.ledger-pill {
   font-weight: 500;
 }
 
-.ledger-overview-add {
+.ledger-home-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.ledger-home-banner {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 10px;
   width: 100%;
-  margin-top: 14px;
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid rgba(240, 221, 227, 0.95);
+  border-radius: 20px;
   background: #fff;
   color: var(--ink);
+  text-align: left;
   font: inherit;
-  font-size: 15px;
-  font-weight: 600;
   cursor: pointer;
 }
 
-.ledger-overview-add span {
-  width: 22px;
-  height: 24px;
-  display: grid;
-  place-items: end center;
+.ledger-home-banner.is-wash {
+  border-color: transparent;
+  background: linear-gradient(115deg, #fff2f5 0%, #ffe3ec 100%);
 }
 
-.ledger-overview-add span svg {
-  width: 22px;
-  height: 24px;
-  fill: #e85d75;
+.ledger-home-banner b {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.ledger-home-banner p {
+  margin: 12px 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.ledger-home-banner-art {
+  height: 36px;
+  width: auto;
+  flex: none;
+  object-fit: contain;
 }
 
 .ledger-stats-bars {
