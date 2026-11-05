@@ -1426,7 +1426,7 @@ div.ledger-worth-open {
 .ledger-tab-mark {
   width: 22px;
   height: 22px;
-  background: currentColor;
+  background: var(--ink);
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-position: center;
   -webkit-mask-size: contain;
