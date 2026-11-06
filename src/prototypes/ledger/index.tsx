@@ -64,7 +64,7 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'about' | 'disclaimer' | 'year' | 'goals' | 'goal' | 'sparks' | 'spark' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder' | 'cloud';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'accountsBoard' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'about' | 'disclaimer' | 'year' | 'goals' | 'goal' | 'sparks' | 'spark' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder' | 'cloud';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30;
@@ -106,7 +106,7 @@ function GenderIcon({ gender, L }: { gender: Gender; L: Copy }) {
 const route = defineHashPageRoute([
     { id: 'dashboard', title: '总览' },
     { id: 'transactions', title: '流水' },
-    { id: 'accounts', title: '账户' },
+    { id: 'accounts', title: '灵感' },
     { id: 'me', title: '我的' },
 ], { defaultPageId: 'dashboard' });
 
@@ -752,7 +752,7 @@ function ledgerTabs(L: Copy): { id: PageId; title: string; icon: string }[] {
     return [
         { id: 'dashboard', title: L.tabDashboard, icon: tabOverview },
         { id: 'transactions', title: L.tabTransactions, icon: tabLedger },
-        { id: 'accounts', title: L.tabAccounts, icon: tabAccounts },
+        { id: 'accounts', title: L.sparks, icon: tabAccounts },
         { id: 'me', title: L.tabMe, icon: tabProfile },
     ];
 }
@@ -883,6 +883,8 @@ export default function LedgerApp() {
     const importFileRef = useRef<HTMLInputElement>(null);
     const entryReturn = useRef<Panel | null>(null);
     const accountFromEntry = useRef(false);
+    const accountsReturn = useRef<Panel>('entry');
+    const transferBack = useRef<Panel>('none');
     const [draft, setDraft] = useState<EntryDraft>(() => blankEntry(emptyBook()));
     const [accountName, setAccountName] = useState('');
     const [accountOpening, setAccountOpening] = useState('');
@@ -1122,8 +1124,28 @@ export default function LedgerApp() {
         });
     }
 
+    function openFresh(direction: Direction) {
+        const next = blankEntry(book);
+        next.direction = direction;
+        setDraft(next);
+        setPanel('entry');
+    }
+
+    function openNewRecord() {
+        if (statsKind === 'other') {
+            const own = book.accounts.filter((account) => !account.id.startsWith('sample-'));
+            if (own.length < 2) {
+                flashExportNote(L.transferNeedTwo);
+                return;
+            }
+            openTransferPanel();
+            return;
+        }
+        openFresh(statsKind === 'in' ? 'in' : 'out');
+    }
+
     function openEntry(entry?: Entry) {
-        if (!entry) setDraft(blankEntry(book));
+        if (!entry) openFresh('out');
         else {
             const account = book.accounts.find((item) => item.id === entry.accountId);
             setDraft({
@@ -1330,7 +1352,7 @@ export default function LedgerApp() {
             ? book.sparks.map((item) => (item.id === sparkId ? next : item))
             : [...book.sparks, next];
         writeBook({ ...book, sparks });
-        setPanel('sparks');
+        goTab('accounts');
     }
 
     function toggleSparkFavorite(spark: Spark) {
@@ -1342,7 +1364,7 @@ export default function LedgerApp() {
 
     function deleteSpark(id: string) {
         writeBook({ ...book, sparks: book.sparks.filter((item) => item.id !== id) });
-        setPanel('sparks');
+        goTab('accounts');
     }
 
     function depositTowardGoal() {
@@ -1460,6 +1482,11 @@ export default function LedgerApp() {
         setAccountKind('');
     }
 
+    function openAccountsBoard() {
+        accountsReturn.current = panel === 'export' ? 'export' : 'entry';
+        setPanel('accountsBoard');
+    }
+
     function closeAccountEditor() {
         if (accountFromEntry.current) {
             accountFromEntry.current = false;
@@ -1468,7 +1495,7 @@ export default function LedgerApp() {
             setPanelState('entry');
             return;
         }
-        setPanel(viewingAccountId ? 'accountDetail' : 'none');
+        setPanel(viewingAccountId ? 'accountDetail' : 'accountsBoard');
     }
 
     function saveAccount(archived = accountArchived) {
@@ -1517,7 +1544,7 @@ export default function LedgerApp() {
             removed,
         });
         setViewingAccountId('');
-        setPanel('none');
+        setPanel('accountsBoard');
     }
 
     function openCategoryForm(slot: 'entry' | 'other' | 'manage') {
@@ -1641,12 +1668,13 @@ export default function LedgerApp() {
         setPanel('budget');
     }
 
-    function openTransferPanel() {
+    function openTransferPanel(back: Panel = 'none') {
         const open = openAccountList(book.accounts);
         setTransferFrom(open[0]?.id ?? '');
         setTransferTo(open[1]?.id ?? open[0]?.id ?? '');
         setTransferAmount('');
         setTransferDate(todayIso());
+        transferBack.current = back;
         setPanel('transfer');
     }
 
@@ -2007,6 +2035,14 @@ export default function LedgerApp() {
                             }}
                             onBack={closeEntry}
                             onAddAccount={openAccountFromEntry}
+                            onTransfer={() => {
+                                const own = book.accounts.filter((account) => !account.id.startsWith('sample-'));
+                                if (own.length < 2) {
+                                    flashExportNote(L.transferNeedTwo);
+                                    return;
+                                }
+                                openTransferPanel('entry');
+                            }}
                             onAddCategory={() => openCategoryForm('entry')}
                             onAddOtherCategory={() => openCategoryForm('other')}
                         />
@@ -2039,7 +2075,7 @@ export default function LedgerApp() {
                     )}
                     {panel === 'transfer' && (
                         <>
-                            <SubpageHead L={L} title={L.transferTitle} onBack={() => setPanel('none')} />
+                            <SubpageHead L={L} title={L.transferTitle} onBack={() => setPanel(transferBack.current)} />
                             <label className="ledger-label" htmlFor="transfer-from">{L.transferFrom}</label>
                             <ChoiceMenu id="transfer-from" label={L.transferFrom} value={transferFrom} options={openAccountList(book.accounts, transferFrom).map((account) => ({ value: account.id, label: account.name }))} onChange={setTransferFrom} />
                             <label className="ledger-label" htmlFor="transfer-to">{L.transferTo}</label>
@@ -2124,7 +2160,7 @@ export default function LedgerApp() {
                             account={viewingAccount}
                             entries={book.entries}
                             mark={mark}
-                            onBack={() => { setViewingAccountId(''); setPanel('none'); }}
+                            onBack={() => { setViewingAccountId(''); setPanel('accountsBoard'); }}
                             onEdit={() => openAccount(viewingAccount)}
                             onActivity={(from, to) => openAccountFeed(viewingAccount.id, from, to)}
                         />
@@ -2166,7 +2202,7 @@ export default function LedgerApp() {
                                     <span>{L.transactions}</span>
                                 </button>
                                 <div className="ledger-export-rule" role="presentation" />
-                                <button type="button" onClick={() => goTab('accounts')}>
+                                <button type="button" onClick={openAccountsBoard}>
                                     <b>{book.accounts.length}</b>
                                     <span>{L.tabAccounts}</span>
                                 </button>
@@ -2295,6 +2331,7 @@ export default function LedgerApp() {
                             nextDisabled={reportYear >= new Date().getFullYear()}
                             onOpen={openYearFeed}
                             onEntry={openYearEntry}
+                            onAdd={openFresh}
                             onBack={() => setPanel('none')}
                         />
                     )}
@@ -2347,9 +2384,13 @@ export default function LedgerApp() {
                             {goalId && <button type="button" className="ledger-text-button" onClick={() => deleteGoal(goalId)}>{L.deleteEntry}</button>}
                         </>
                     )}
-                    {panel === 'sparks' && (
+                    {(panel === 'sparks' || (panel === 'none' && active === 'accounts')) && (
                         <>
-                            <SubpageHead L={L} title={L.sparks} onBack={() => setPanel('none')} />
+                            {panel === 'sparks' ? (
+                                <SubpageHead L={L} title={L.sparks} onBack={() => setPanel('none')} />
+                            ) : (
+                                <div className="ledger-topbar"><h1>{L.sparks}</h1></div>
+                            )}
                             <div className="ledger-choice-row ledger-spark-kinds" role="tablist" aria-label={L.sparkIdea}>
                                 {sparkKindOrder.map((item) => (
                                     <button key={item} type="button" className={sparkDraftKind === item ? 'is-on' : ''} onClick={() => setSparkDraftKind(item)}>{sparkKindLabel(item, L)}</button>
@@ -2433,7 +2474,7 @@ export default function LedgerApp() {
                     )}
                     {panel === 'spark' && (
                         <>
-                            <SubpageHead L={L} title={L.sparks} onBack={() => setPanel('sparks')} />
+                            <SubpageHead L={L} title={L.sparks} onBack={() => goTab('accounts')} />
                             <div className="ledger-choice-row ledger-spark-kinds" role="tablist" aria-label={L.sparkIdea}>
                                 {sparkKindOrder.map((item) => (
                                     <button key={item} type="button" className={sparkKind === item ? 'is-on' : ''} onClick={() => setSparkKind(item)}>{sparkKindLabel(item, L)}</button>
@@ -2498,10 +2539,11 @@ export default function LedgerApp() {
                                 onKind={setStatsKind}
                                 onMonth={setStatsMonth}
                                 onOpen={openStatsFeed}
+                                onAdd={openNewRecord}
                             />
                             {visibleEntries.every((entry) => entry.id.startsWith('sample-')) && (
                                 <div className="ledger-home-banners">
-                                    <button type="button" className="ledger-home-banner is-wash" onClick={() => openEntry()}>
+                                    <button type="button" className="ledger-home-banner is-wash" onClick={openNewRecord}>
                                         <span>
                                             <b>{L.bannerEntryTitle}</b>
                                             <p>{L.bannerEntryNote}</p>
@@ -2552,7 +2594,7 @@ export default function LedgerApp() {
                                     <h2>{L.recurringTitle}</h2>
                                     {recurringItems.length > 0
                                         ? <span className="ledger-topbar-meta">{L.recurringHint}</span>
-                                        : <button type="button" onClick={() => openEntry()}>{L.entryNew}</button>}
+                                        : <button type="button" onClick={openNewRecord}>{L.entryNew}</button>}
                                 </div>
                                 {recurringItems.length > 0 ? (
                                     <ul className="ledger-recurring-list">
@@ -2664,7 +2706,7 @@ export default function LedgerApp() {
                                             </svg>
                                         </span>
                                         <p>{L.txEmpty}</p>
-                                        <button type="button" className="ledger-pill" onClick={() => openEntry()}>{L.entryNew}</button>
+                                        <button type="button" className="ledger-pill" onClick={openNewRecord}>{L.entryNew}</button>
                                     </div>
                                 ) : (
                                     (txView === 'calendar' && calendarDay
@@ -2685,11 +2727,9 @@ export default function LedgerApp() {
                         </>
                     )}
 
-                    {panel === 'none' && active === 'accounts' && (
+                    {panel === 'accountsBoard' && (
                         <>
-                            <div className="ledger-topbar">
-                                <h1>{L.accounts}<span className="ledger-title-count">({ownAccounts.length})</span></h1>
-                            </div>
+                            <SubpageHead L={L} title={`${L.accounts} (${ownAccounts.length})`} onBack={() => setPanel(accountsReturn.current)} />
                             {ownAccounts.length === 0 ? (
                                 <AccountIntro L={L} />
                             ) : (
@@ -2794,17 +2834,6 @@ export default function LedgerApp() {
                                     )}
                                 </>
                             )}
-                            <button
-                                type="button"
-                                className={`ledger-pill ledger-pill-secondary${ownAccounts.length >= 2 ? '' : ' is-quiet'}`}
-                                onClick={() => {
-                                    if (ownAccounts.length < 2) {
-                                        flashExportNote(L.transferNeedTwo);
-                                        return;
-                                    }
-                                    openTransferPanel();
-                                }}
-                            >{L.transfer}</button>
                             <button type="button" className="ledger-pill" onClick={() => openAccount()}>{L.addAccount}</button>
                             {ownAccounts.length > 0 && <SampleNote L={L} book={book} onClear={clearSample} />}
                         </>
@@ -2826,18 +2855,18 @@ export default function LedgerApp() {
                                     </span>
                                 </div>
                             </button>
-                            <RecordMarks days={loggedDayCount} L={L} onAdd={() => openEntry()} />
+                            <RecordMarks days={loggedDayCount} L={L} onAdd={openNewRecord} />
                             <section className="ledger-card ledger-spark-home">
                                 <div className="ledger-spark-home-head">
                                     <h2>{L.sparks}</h2>
                                     {book.sparks.length > 0 && (
-                                        <button type="button" className="ledger-spark-all" onClick={() => setPanel('sparks')}>
+                                        <button type="button" className="ledger-spark-all" onClick={() => goTab('accounts')}>
                                             <span>{book.sparks.length}</span>
                                             <span aria-hidden="true">›</span>
                                         </button>
                                     )}
                                 </div>
-                                <button type="button" className="ledger-spark-prompt" onClick={() => setPanel('sparks')}>{L.sparkPlaceholder}</button>
+                                <button type="button" className="ledger-spark-prompt" onClick={() => goTab('accounts')}>{L.sparkPlaceholder}</button>
                                 {sparkHomeShown.map((spark) => (
                                     <button key={spark.id} type="button" className="ledger-spark-peek" onClick={() => openSpark(spark)}>
                                         {spark.body.replace(/\s+/g, ' ')}
@@ -2908,7 +2937,7 @@ export default function LedgerApp() {
                 </div>
 
                 {showFab && (
-                    <button type="button" className="ledger-fab" aria-label={L.fabLabel} onClick={() => openEntry()}>
+                    <button type="button" className="ledger-fab" aria-label={L.fabLabel} onClick={openNewRecord}>
                         <span className="ledger-pen" aria-hidden="true">
                             <svg viewBox="0 0 34 34">
                                 <path className="ledger-pen-line" d="M8 24 Q14 22 24 12" />
@@ -3018,6 +3047,7 @@ function BookStats({
     onKind,
     onMonth,
     onOpen,
+    onAdd,
 }: {
     L: Copy;
     entries: Entry[];
@@ -3030,6 +3060,7 @@ function BookStats({
     onKind: (kind: StatsKind) => void;
     onMonth: (month: string) => void;
     onOpen: (from: string, to: string, category: string, title: string) => void;
+    onAdd: () => void;
 }) {
     const today = todayIso();
     const current = today.slice(0, 7);
@@ -3113,7 +3144,7 @@ function BookStats({
                 <p className="ledger-stats-empty">
                     <img className="ledger-stats-empty-mark" src={emptyNote} alt="" />
                     <span>{L.statsEmpty}</span>
-                    <button type="button" onClick={() => openEntry()}>{L.statsEmptyAdd}</button>
+                    <button type="button" onClick={onAdd}>{L.statsEmptyAdd}</button>
                 </p>
             ) : (
                 <>
@@ -3673,6 +3704,7 @@ function YearReportPanel({
     nextDisabled,
     onOpen,
     onEntry,
+    onAdd,
     onBack,
 }: {
     L: Copy;
@@ -3687,6 +3719,7 @@ function YearReportPanel({
     nextDisabled: boolean;
     onOpen: (kind: 'out' | 'in', month?: number, category?: string, title?: string, accountId?: string) => void;
     onEntry: (entry: Entry) => void;
+    onAdd: (direction: Direction) => void;
     onBack: () => void;
 }) {
     const [kind, setKind] = useState<'out' | 'in'>('out');
@@ -3765,7 +3798,7 @@ function YearReportPanel({
                 {slices.length === 0 ? (
                     <p className="ledger-year-empty">
                         <span>{L.statsEmpty}</span>
-                        <button type="button" onClick={() => openEntry()}>{L.statsEmptyAdd}</button>
+                        <button type="button" onClick={() => onAdd(kind)}>{L.statsEmptyAdd}</button>
                     </p>
                 ) : (
                     <>
@@ -4004,6 +4037,7 @@ function EntryForm({
     onRefund,
     onBack,
     onAddAccount,
+    onTransfer,
     onAddCategory,
     onAddOtherCategory,
 }: {
@@ -4019,6 +4053,7 @@ function EntryForm({
     onRefund: () => void;
     onBack: () => void;
     onAddAccount: () => void;
+    onTransfer: () => void;
     onAddCategory: () => void;
     onAddOtherCategory: () => void;
 }) {
@@ -4043,6 +4078,7 @@ function EntryForm({
             <div className="ledger-choice-row" role="tablist" aria-label={L.direction}>
                 <button type="button" role="tab" aria-selected={draft.direction === 'out'} className={draft.direction === 'out' ? 'is-on' : ''} onClick={() => onChange({ ...draft, direction: 'out' })}>{L.expense}</button>
                 <button type="button" role="tab" aria-selected={draft.direction === 'in'} className={draft.direction === 'in' ? 'is-on' : ''} onClick={() => onChange({ ...draft, direction: 'in' })}>{L.income}</button>
+                <button type="button" onClick={onTransfer}>{L.transfer}</button>
             </div>
             <label className="ledger-label" htmlFor="entry-amount">{L.amount}</label>
             <input id="entry-amount" className={`ledger-field${mark('entry-amount') ? ' is-miss' : ''}`} inputMode="decimal" value={draft.amount} placeholder="0.00" onChange={(event) => onChange({ ...draft, amount: moneyTyping(event.target.value) })} />

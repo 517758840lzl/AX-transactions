@@ -53,7 +53,7 @@ const zh = {
     accountsWindow7: '7 天',
     accountsWindow30: '1 月',
     accountPeriodDelta: '区间变动',
-    worthGrowth: '区间净增长',
+    worthGrowth: '区间结余',
     worthPastWeek: '过去7天',
     worthPastMonth: '过去1个月',
     worthPastQuarter: '过去3个月',
