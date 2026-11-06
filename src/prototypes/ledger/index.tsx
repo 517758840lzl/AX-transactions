@@ -2031,7 +2031,7 @@ export default function LedgerApp() {
                     </div>
                 )}
                 <div className="ledger-stage" onPointerDown={edgeSwipe}>
-                <div key={`${active}-${panel}`} className={`ledger-body is-${pageMotion}${showFab ? '' : ' is-rest'}${panel === 'privacy' ? ' is-privacy' : ''}`}>
+                <div key={`${active}-${panel}`} className={`ledger-body is-${pageMotion}${showFab ? '' : ' is-rest'}${panel === 'privacy' ? ' is-privacy' : ''}${panel === 'entry' ? ' is-entry' : ''}`}>
                     {panel === 'entry' && (
                         <EntryForm
                             L={L}
