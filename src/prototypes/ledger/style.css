@@ -1918,8 +1918,58 @@ select.ledger-field:focus {
 }
 
 .ledger-spark-kinds {
-  margin-top: 16px;
-  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  overflow: visible;
+}
+
+.ledger-spark-kinds button {
+  min-width: 0;
+}
+
+.ledger-spark-meta {
+  margin-top: 12px;
+  padding: 4px 16px 8px;
+}
+
+.ledger-spark-meta .ledger-label {
+  margin-top: 12px;
+}
+
+.ledger-spark-photo-row,
+.ledger-spark-fav,
+.ledger-spark-delete {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-spark-photo-row span,
+.ledger-spark-fav {
+  margin-left: 0;
+}
+
+.ledger-spark-photo-row span {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ledger-spark-delete {
+  color: var(--down);
+  margin-top: 4px;
 }
 
 .ledger-choice-row--3 button {

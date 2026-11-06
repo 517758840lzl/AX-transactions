@@ -64,7 +64,7 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'accountsBoard' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'about' | 'disclaimer' | 'year' | 'goals' | 'goal' | 'sparks' | 'spark' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder' | 'cloud';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'accountsBoard' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'about' | 'disclaimer' | 'year' | 'goals' | 'goal' | 'sparks' | 'sparkShelf' | 'spark' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder' | 'cloud';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30;
@@ -949,7 +949,9 @@ export default function LedgerApp() {
     const pictureMoved = useRef(false);
     const sparkLaneDrag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
     const [sparkQuery, setSparkQuery] = useState('');
-    const [sparkFilter, setSparkFilter] = useState<'all' | SparkKind | 'favorite'>('all');
+    const [sparkFilter, setSparkFilter] = useState<'all' | 'favorite'>('all');
+    const [sparkShelfKind, setSparkShelfKind] = useState<SparkKind>('idea');
+    const sparkBack = useRef<Panel>('none');
     const [sparkTimeline, setSparkTimeline] = useState(false);
     const [sparkHomeOpen, setSparkHomeOpen] = useState(false);
     const [notifyDenied, setNotifyDenied] = useState(false);
@@ -1325,15 +1327,27 @@ export default function LedgerApp() {
         setSparkDraftDate(todayIso());
     }
 
-    function openSpark(spark?: Spark) {
+    function openSparkShelf(kind: SparkKind) {
+        setSparkShelfKind(kind);
+        setSparkFilter('all');
+        setSparkQuery('');
+        setPanel('sparkShelf');
+    }
+
+    function openSpark(spark?: Spark, preset?: SparkKind) {
+        sparkBack.current = panel === 'sparkShelf' ? 'sparkShelf' : 'none';
         setSparkId(spark?.id ?? '');
         setSparkBody(spark?.body ?? '');
         setSparkDate(spark?.writtenOn ?? todayIso());
-        setSparkKind(spark?.kind ?? 'idea');
+        setSparkKind(spark?.kind ?? preset ?? 'idea');
         setSparkTags(spark?.tags.join(' ') ?? '');
         setSparkFavorite(spark?.favorite === true);
         setSparkImage(spark?.image ?? '');
         setPanel('spark');
+    }
+
+    function closeSpark() {
+        setPanel(sparkBack.current === 'sparkShelf' ? 'sparkShelf' : 'none');
     }
 
     function saveSpark() {
@@ -1352,7 +1366,7 @@ export default function LedgerApp() {
             ? book.sparks.map((item) => (item.id === sparkId ? next : item))
             : [...book.sparks, next];
         writeBook({ ...book, sparks });
-        goTab('accounts');
+        closeSpark();
     }
 
     function toggleSparkFavorite(spark: Spark) {
@@ -1364,7 +1378,7 @@ export default function LedgerApp() {
 
     function deleteSpark(id: string) {
         writeBook({ ...book, sparks: book.sparks.filter((item) => item.id !== id) });
-        goTab('accounts');
+        closeSpark();
     }
 
     function depositTowardGoal() {
@@ -1966,8 +1980,8 @@ export default function LedgerApp() {
     }
 
     const visibleSparks = book.sparks.filter((spark) => {
+        if (spark.kind !== sparkShelfKind) return false;
         if (sparkFilter === 'favorite' && !spark.favorite) return false;
-        if (sparkFilter !== 'all' && sparkFilter !== 'favorite' && spark.kind !== sparkFilter) return false;
         return sparkMatches(spark, sparkQuery, L);
     });
     const sparkHomeList = [...book.sparks].sort((left, right) => (left.writtenOn === right.writtenOn ? (left.id < right.id ? 1 : -1) : left.writtenOn < right.writtenOn ? 1 : -1));
@@ -2384,38 +2398,32 @@ export default function LedgerApp() {
                             {goalId && <button type="button" className="ledger-text-button" onClick={() => deleteGoal(goalId)}>{L.deleteEntry}</button>}
                         </>
                     )}
-                    {(panel === 'sparks' || (panel === 'none' && active === 'accounts')) && (
+                    {panel === 'none' && active === 'accounts' && (
                         <>
-                            {panel === 'sparks' ? (
-                                <SubpageHead L={L} title={L.sparks} onBack={() => setPanel('none')} />
-                            ) : (
-                                <div className="ledger-topbar"><h1>{L.sparks}</h1></div>
-                            )}
-                            <div className="ledger-choice-row ledger-spark-kinds" role="tablist" aria-label={L.sparkIdea}>
-                                {sparkKindOrder.map((item) => (
-                                    <button key={item} type="button" className={sparkDraftKind === item ? 'is-on' : ''} onClick={() => setSparkDraftKind(item)}>{sparkKindLabel(item, L)}</button>
+                            <div className="ledger-topbar"><h1>{L.sparks}</h1></div>
+                            <button type="button" className="ledger-pill" onClick={() => openSpark(undefined, 'idea')}>{L.sparkPlaceholder}</button>
+                            <section className="ledger-card ledger-settings">
+                                {sparkKindOrder.map((kind, index) => (
+                                    <React.Fragment key={kind}>
+                                        {index > 0 && <div className="ledger-settings-divider" role="presentation" />}
+                                        <SettingsLink title={sparkKindLabel(kind, L)} value={String(book.sparks.filter((spark) => spark.kind === kind).length)} onClick={() => openSparkShelf(kind)} />
+                                    </React.Fragment>
                                 ))}
-                            </div>
-                            <textarea className="ledger-writing" value={sparkDraft} maxLength={2000} rows={6} placeholder={L.sparkPlaceholder} onChange={(event) => setSparkDraft(event.target.value)} />
-                            <label className="ledger-label" htmlFor="spark-draft-tags">{L.sparkTags}</label>
-                            <input id="spark-draft-tags" className="ledger-field" value={sparkDraftTags} placeholder={L.sparkTagHint} onChange={(event) => setSparkDraftTags(event.target.value)} />
-                            <DateField id="spark-draft-date" label={L.date} locale={locale} value={sparkDraftDate} max={todayIso()} onChange={setSparkDraftDate} L={L} />
-                            {sparkDraftImage && (
-                                <button type="button" className="ledger-spark-photo" aria-label={L.sparkPicture} onClick={() => setPictureLook(sparkDraftImage)}>
-                                    <img src={sparkDraftImage} alt="" />
-                                </button>
-                            )}
-                            {sparkDraftImage && <button type="button" className="ledger-text-button" onClick={() => setSparkDraftImage('')}>{L.sparkPictureRemove}</button>}
-                            <label className="ledger-pill ledger-pill-secondary">
-                                {L.sparkPicture}
-                                <input type="file" accept="image/*" hidden onChange={(event) => {
-                                    const file = event.target.files?.[0];
-                                    if (file) void shrinkPicture(file).then((url) => { if (url) setSparkDraftImage(url); });
-                                    event.target.value = '';
-                                }} />
-                            </label>
-                            <button type="button" className="ledger-text-button" onClick={() => setSparkDraftFavorite((value) => !value)}>{sparkDraftFavorite ? `★ ${L.sparkFavorite}` : `☆ ${L.sparkFavorite}`}</button>
-                            <button type="button" className="ledger-pill" onClick={saveSparkDraft} disabled={!sparkDraft.trim()}>{L.save}</button>
+                            </section>
+                            {sparkGroups(sparkHomeShown, L).map((group) => (
+                                <section key={group.day} className="ledger-spark-day">
+                                    <h2>{group.label}</h2>
+                                    {group.items.map((spark) => (
+                                        <SparkCard key={spark.id} spark={spark} L={L} onOpen={() => openSpark(spark)} onFavorite={() => toggleSparkFavorite(spark)} />
+                                    ))}
+                                </section>
+                            ))}
+                        </>
+                    )}
+                    {panel === 'sparkShelf' && (
+                        <>
+                            <SubpageHead L={L} title={sparkKindLabel(sparkShelfKind, L)} onBack={() => setPanel('none')} />
+                            <button type="button" className="ledger-pill" onClick={() => openSpark(undefined, sparkShelfKind)}>{L.sparkPlaceholder}</button>
                             <div className="ledger-spark-board">
                                 <label className="ledger-spark-find">
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M16 16l4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
@@ -2441,9 +2449,9 @@ export default function LedgerApp() {
                                     }}
                                     onPointerDown={sparkLaneDown}
                                 >
-                                    {(['all', ...sparkKindOrder, 'favorite'] as const).map((item) => (
+                                    {(['all', 'favorite'] as const).map((item) => (
                                         <button key={item} type="button" className={sparkFilter === item ? 'is-on' : ''} onClick={() => setSparkFilter(item)}>
-                                            {item === 'all' ? L.filterAll : item === 'favorite' ? `★ ${L.sparkFavorite}` : sparkKindLabel(item, L)}
+                                            {item === 'all' ? L.filterAll : `★ ${L.sparkFavorite}`}
                                         </button>
                                     ))}
                                 </div>
@@ -2454,7 +2462,7 @@ export default function LedgerApp() {
                                     {visibleSparks.filter((spark) => spark.writtenOn === day).map((spark) => (
                                         <SparkCard key={spark.id} spark={spark} L={L} onOpen={() => openSpark(spark)} onFavorite={() => toggleSparkFavorite(spark)} />
                                     ))}
-                                    {book.entries.filter((entry) => entry.date === day && !entry.id.startsWith('transfer-') && (sparkFilter !== 'all' || entryMatchesQuery(entry, sparkQuery))).map((entry) => (
+                                    {sparkFilter === 'all' && book.entries.filter((entry) => entry.date === day && !entry.id.startsWith('transfer-') && entryMatchesQuery(entry, sparkQuery)).map((entry) => (
                                         <button key={entry.id} type="button" className="ledger-spark-entry" onClick={() => openEntry(entry)}>
                                             <CategoryBadge mark={categoryKey(entry.category, book.categoryMarks)} small />
                                             <b>{entry.title}</b>
@@ -2474,33 +2482,37 @@ export default function LedgerApp() {
                     )}
                     {panel === 'spark' && (
                         <>
-                            <SubpageHead L={L} title={L.sparks} onBack={() => goTab('accounts')} />
+                            <SubpageHead L={L} title={sparkKindLabel(sparkKind, L)} onBack={closeSpark} />
                             <div className="ledger-choice-row ledger-spark-kinds" role="tablist" aria-label={L.sparkIdea}>
                                 {sparkKindOrder.map((item) => (
                                     <button key={item} type="button" className={sparkKind === item ? 'is-on' : ''} onClick={() => setSparkKind(item)}>{sparkKindLabel(item, L)}</button>
                                 ))}
                             </div>
-                            <textarea className="ledger-writing" value={sparkBody} maxLength={2000} rows={6} placeholder={L.sparkPlaceholder} onChange={(event) => setSparkBody(event.target.value)} />
-                            <label className="ledger-label" htmlFor="spark-tags">{L.sparkTags}</label>
-                            <input id="spark-tags" className="ledger-field" value={sparkTags} placeholder={L.sparkTagHint} onChange={(event) => setSparkTags(event.target.value)} />
-                            <DateField id="spark-date" label={L.date} locale={locale} value={sparkDate} max={todayIso()} onChange={setSparkDate} L={L} />
-                            {sparkImage && (
-                                <button type="button" className="ledger-spark-photo" aria-label={L.sparkPicture} onClick={() => setPictureLook(sparkImage)}>
-                                    <img src={sparkImage} alt="" />
-                                </button>
-                            )}
-                            {sparkImage && <button type="button" className="ledger-text-button" onClick={() => setSparkImage('')}>{L.sparkPictureRemove}</button>}
-                            <label className="ledger-pill ledger-pill-secondary">
-                                {L.sparkPicture}
-                                <input type="file" accept="image/*" hidden onChange={(event) => {
-                                    const file = event.target.files?.[0];
-                                    if (file) void shrinkPicture(file).then((url) => { if (url) setSparkImage(url); });
-                                    event.target.value = '';
-                                }} />
-                            </label>
-                            <button type="button" className="ledger-text-button" onClick={() => setSparkFavorite((value) => !value)}>{sparkFavorite ? `★ ${L.sparkFavorite}` : `☆ ${L.sparkFavorite}`}</button>
+                            <textarea className="ledger-writing" value={sparkBody} maxLength={2000} rows={5} placeholder={L.sparkHint} onChange={(event) => setSparkBody(event.target.value)} />
+                            <section className="ledger-card ledger-spark-meta">
+                                <label className="ledger-label" htmlFor="spark-tags">{L.sparkTags}</label>
+                                <input id="spark-tags" className="ledger-field" value={sparkTags} placeholder={L.sparkTagHint} onChange={(event) => setSparkTags(event.target.value)} />
+                                <label className="ledger-label" htmlFor="spark-date">{L.date}</label>
+                                <DateField id="spark-date" label={L.date} locale={locale} value={sparkDate} max={todayIso()} onChange={setSparkDate} L={L} />
+                                {sparkImage && (
+                                    <button type="button" className="ledger-spark-photo" aria-label={L.sparkPicture} onClick={() => setPictureLook(sparkImage)}>
+                                        <img src={sparkImage} alt="" />
+                                    </button>
+                                )}
+                                {sparkImage && <button type="button" className="ledger-spark-delete" onClick={() => setSparkImage('')}>{L.sparkPictureRemove}</button>}
+                                <label className="ledger-spark-photo-row">
+                                    {L.sparkPicture}
+                                    <span aria-hidden="true">›</span>
+                                    <input type="file" accept="image/*" hidden onChange={(event) => {
+                                        const file = event.target.files?.[0];
+                                        if (file) void shrinkPicture(file).then((url) => { if (url) setSparkImage(url); });
+                                        event.target.value = '';
+                                    }} />
+                                </label>
+                                <button type="button" className="ledger-spark-fav" onClick={() => setSparkFavorite((value) => !value)}>{sparkFavorite ? `★ ${L.sparkFavorite}` : `☆ ${L.sparkFavorite}`}</button>
+                            </section>
                             <button type="button" className="ledger-pill" onClick={saveSpark} disabled={!sparkBody.trim()}>{L.save}</button>
-                            {sparkId && <button type="button" className="ledger-text-button" onClick={() => deleteSpark(sparkId)}>{L.deleteEntry}</button>}
+                            {sparkId && <button type="button" className="ledger-spark-delete" onClick={() => deleteSpark(sparkId)}>{L.deleteEntry}</button>}
                         </>
                     )}
                     {panel === 'filter' && (
