@@ -845,8 +845,95 @@
 }
 
 .ledger-flow button.is-on {
-  background: var(--wash);
-  border-color: var(--line);
+  background: transparent;
+  border-color: transparent;
+}
+
+.ledger-flow-mark {
+  width: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.ledger-flow button.is-on.is-down .ledger-flow-mark {
+  background: #e85d75;
+}
+
+.ledger-flow button.is-on.is-up .ledger-flow-mark {
+  background: #2f9e62;
+}
+
+.ledger-tx-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ledger-tx-month {
+  display: flex;
+  align-items: center;
+}
+
+.ledger-tx-month button,
+.ledger-tx-icon {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ledger-tx-month button:first-child,
+.ledger-tx-month button:last-child {
+  width: 22px;
+  height: 32px;
+  padding: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ledger-tx-month button:nth-child(2) {
+  max-width: 92px;
+  padding: 0 2px;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-tx-month button:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.ledger-tx-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.ledger-tx-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ledger-tx-search {
+  margin: 0 0 8px;
+}
+
+.ledger-tx-status {
+  margin: 0 0 12px;
+}
+
+.ledger-tx-filters {
+  margin: -4px 0 12px;
 }
 
 .ledger-flow button > span {
@@ -4451,6 +4538,64 @@ label.ledger-pill {
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
+}
+
+.ledger-spark-empty {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.ledger-spark-empty > span {
+  display: flex;
+  flex: 0 0 22px;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ledger-spark-empty > span i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 48px;
+}
+
+.ledger-spark-empty > span i::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border: 1.4px solid var(--line);
+  border-radius: 50%;
+}
+
+.ledger-spark-empty > em {
+  width: 2px;
+  background: var(--pink);
+}
+
+.ledger-spark-empty > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ledger-spark-empty button {
+  width: 100%;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+  font: inherit;
+  font-size: 17px;
+  text-align: left;
+  cursor: pointer;
 }
 
 .ledger-spark-starters {

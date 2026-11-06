@@ -386,6 +386,29 @@ function periodChipLabel(mode: PeriodMode, rangeFrom: string, rangeTo: string, l
     return `${Number(sm)}/${Number(sd)}–${Number(em)}/${Number(ed)}`;
 }
 
+function txMonthHeading(mode: PeriodMode, rangeFrom: string, rangeTo: string, locale: Locale, L: Copy) {
+    if (mode === 'today') return periodChipLabel(mode, rangeFrom, rangeTo, locale, L);
+    if (mode === 'month') {
+        const now = new Date();
+        return locale === 'en' ? now.toLocaleString('en-US', { month: 'short' }) : `${now.getMonth() + 1}月`;
+    }
+    const start = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
+    const end = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
+    const bits = start.split('-');
+    if (bits.length === 3 && bits[2] === '01') {
+        const year = Number(bits[0]);
+        const month = Number(bits[1]);
+        const last = new Date(year, month, 0).getDate();
+        const lastIso = `${bits[0]}-${bits[1]}-${String(last).padStart(2, '0')}`;
+        if (end === lastIso) {
+            return locale === 'en'
+                ? new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'short' })
+                : `${month}月`;
+        }
+    }
+    return periodChipLabel(mode, rangeFrom, rangeTo, locale, L);
+}
+
 function accountKindLabel(L: Copy, kind: AccountKind) {
     if (kind === 'bank') return L.accountKindBank;
     if (kind === 'card') return L.accountKindCard;
@@ -1017,6 +1040,7 @@ export default function LedgerApp() {
     const [draftName, setDraftName] = useState('');
     const [draftGender, setDraftGender] = useState<Gender>('secret');
     const [search, setSearch] = useState('');
+    const [txSearchOpen, setTxSearchOpen] = useState(false);
     const [txView, setTxView] = useState<TxView>('list');
     const [calendarDay, setCalendarDay] = useState('');
     const [budgetInput, setBudgetInput] = useState('');
@@ -1198,6 +1222,9 @@ export default function LedgerApp() {
     }, [periodEntries]);
 
     const periodLabel = periodChipLabel(periodMode, rangeFrom, rangeTo, locale, L);
+    const txHeading = txMonthHeading(periodMode, rangeFrom, rangeTo, locale, L);
+    const canStepTxForward = bounds.start < monthBounds(0).start;
+    const txSearchShown = txSearchOpen || search.trim().length > 0;
     const displayName = book.nickname || L.unnamed;
     const dashTitle = dashboardHeading(locale, L);
     const scopeChip = scope === 'mine' ? L.scopeChipMine : L.scopeChipFamily;
@@ -1723,6 +1750,28 @@ export default function LedgerApp() {
         setRangeFrom(day);
         setRangeTo(day);
         setCategoryFilter(ALL_CATEGORIES);
+    }
+
+    function stepTxMonth(delta: number) {
+        const currentStart = monthBounds(0).start;
+        if (delta > 0 && bounds.start >= currentStart) return;
+        const shifted = new Date(`${bounds.start}T00:00:00`);
+        shifted.setMonth(shifted.getMonth() + delta);
+        const year = shifted.getFullYear();
+        const month = shifted.getMonth();
+        const nextStart = isoDate(new Date(year, month, 1));
+        if (nextStart > currentStart) return;
+        if (nextStart === currentStart) {
+            setPeriodMode('month');
+        } else {
+            setPeriodMode('range');
+            setRangeFrom(nextStart);
+            setRangeTo(isoDate(new Date(year, month + 1, 0)));
+        }
+        if (txView === 'calendar') {
+            const today = todayIso();
+            setCalendarDay(today.startsWith(nextStart.slice(0, 7)) ? today : nextStart);
+        }
     }
 
     function goTab(id: PageId) {
@@ -2525,13 +2574,14 @@ export default function LedgerApp() {
                             <section className="ledger-spark-preview">
                                 <h2>{L.sparkNotes}</h2>
                                 {sparkMatched.length === 0 && !sparkNeedle ? (
-                                    <div className="ledger-spark-starters">
-                                        {(['diary', 'thought', 'summary'] as const).map((kind) => (
-                                            <button key={kind} type="button" onClick={() => openSpark(undefined, kind)}>
-                                                <b>{sparkKindLabel(kind, L)}</b>
-                                                <span>{paperCue(locale, kind).hint}</span>
-                                            </button>
-                                        ))}
+                                    <div className="ledger-spark-empty">
+                                        <span aria-hidden="true"><i /><i /><i /></span>
+                                        <em aria-hidden="true" />
+                                        <div>
+                                            {(['diary', 'thought', 'summary'] as const).map((kind) => (
+                                                <button key={kind} type="button" onClick={() => openSpark(undefined, kind)}>{paperCue(locale, kind).hint}</button>
+                                            ))}
+                                        </div>
                                     </div>
                                 ) : sparkMatched.length > 0 ? (
                                     <div className="ledger-spark-briefs">
@@ -2820,38 +2870,80 @@ export default function LedgerApp() {
                         <>
                             <div className="ledger-topbar">
                                 <h1>{L.transactions}</h1>
-                                <button type="button" className="ledger-chip-btn" onClick={() => setPanel('filter')}>{periodLabel}</button>
+                                <div className="ledger-tx-tools">
+                                    <div className="ledger-tx-month">
+                                        <button type="button" aria-label={L.statsPrev} onClick={() => stepTxMonth(-1)}>‹</button>
+                                        <button type="button" onClick={() => setPanel('filter')}>{txHeading}</button>
+                                        <button type="button" aria-label={L.statsNext} disabled={!canStepTxForward} onClick={() => stepTxMonth(1)}>›</button>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="ledger-tx-icon"
+                                        aria-label={L.searchAria}
+                                        onClick={() => {
+                                            if (txSearchShown) {
+                                                setSearch('');
+                                                setTxSearchOpen(false);
+                                            } else {
+                                                setTxSearchOpen(true);
+                                            }
+                                        }}
+                                    >
+                                        {txSearchShown
+                                            ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+                                            : <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M15.6 15.6 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="ledger-tx-icon"
+                                        aria-label={txView === 'calendar' ? L.txViewList : L.txViewCalendar}
+                                        onClick={() => {
+                                            if (txView === 'calendar') setTxView('list');
+                                            else {
+                                                setTxView('calendar');
+                                                if (!calendarDay) setCalendarDay(todayIso());
+                                            }
+                                        }}
+                                    >
+                                        {txView === 'calendar'
+                                            ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+                                            : <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="M4 10h16M8 3.5v4M16 3.5v4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>}
+                                    </button>
+                                </div>
                             </div>
-                            <div className="ledger-flow" role="group" aria-label={L.transactions}>
-                                <button type="button" className={txDirection === 'out' ? 'is-on is-down' : 'is-down'} onClick={() => setTxDirection(txDirection === 'out' ? 'all' : 'out')}>
-                                    <span>{L.periodSpend}</span>
-                                    <MoneyAmount value={flowSpend} mark={mark} size="md" />
-                                </button>
-                                <button type="button" className={txDirection === 'in' ? 'is-on is-up' : 'is-up'} onClick={() => setTxDirection(txDirection === 'in' ? 'all' : 'in')}>
-                                    <span>{L.periodIncome}</span>
-                                    <MoneyAmount value={flowIncome} mark={mark} size="md" />
-                                </button>
-                                <button type="button" className={`${txDirection === 'all' ? 'is-on ' : ''}${flowBalance >= 0 ? 'is-up' : 'is-down'}`} onClick={() => setTxDirection('all')}>
-                                    <span>{L.periodBalance}</span>
-                                    <MoneyAmount value={flowBalance} mark={mark} size="md" signed />
-                                </button>
-                            </div>
-                            <section className="ledger-toolbar" aria-label={L.filter}>
-                                <label className="ledger-search">
+                            {txSearchShown && (
+                                <label className="ledger-search ledger-tx-search">
                                     <svg viewBox="0 0 24 24" aria-hidden="true">
                                         <circle cx="11" cy="11" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.8" />
                                         <path d="M15.6 15.6 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                                     </svg>
-                                    <input value={search} placeholder={L.searchPlaceholder} onChange={(event) => setSearch(event.target.value)} aria-label={L.searchAria} />
+                                    <input autoFocus value={search} placeholder={L.searchPlaceholder} onChange={(event) => setSearch(event.target.value)} aria-label={L.searchAria} />
                                 </label>
-                                <div className="ledger-segment ledger-tx-view" role="tablist" aria-label={L.transactions}>
-                                    <button type="button" role="tab" aria-selected={txView === 'list'} className={txView === 'list' ? 'is-on' : ''} onClick={() => setTxView('list')}>{L.txViewList}</button>
-                                    <button type="button" role="tab" aria-selected={txView === 'calendar'} className={txView === 'calendar' ? 'is-on' : ''} onClick={() => { setTxView('calendar'); if (!calendarDay) setCalendarDay(bounds.end); }}>{L.txViewCalendar}</button>
-                                </div>
-                                <div className="ledger-filter-row" role="tablist" aria-label={L.reviewFilterAria}>
-                                    {([['all', L.filterAll], ['open', L.filterOpen], ['done', L.filterDone]] as const).map(([id, label]) => (
-                                        <button key={id} type="button" className={statusFilter === id ? 'is-on' : ''} onClick={() => setStatusFilter(id)}>{label}</button>
-                                    ))}
+                            )}
+                            <div className="ledger-flow" role="group" aria-label={L.transactions}>
+                                <button type="button" className={txDirection === 'out' ? 'is-on is-down' : 'is-down'} onClick={() => setTxDirection(txDirection === 'out' ? 'all' : 'out')}>
+                                    <span>{L.periodSpend}</span>
+                                    <MoneyAmount value={flowSpend} mark={mark} size="md" />
+                                    <i className="ledger-flow-mark" aria-hidden="true" />
+                                </button>
+                                <button type="button" className={txDirection === 'in' ? 'is-on is-up' : 'is-up'} onClick={() => setTxDirection(txDirection === 'in' ? 'all' : 'in')}>
+                                    <span>{L.periodIncome}</span>
+                                    <MoneyAmount value={flowIncome} mark={mark} size="md" />
+                                    <i className="ledger-flow-mark" aria-hidden="true" />
+                                </button>
+                                <button type="button" className={flowBalance >= 0 ? 'is-up' : 'is-down'} onClick={() => setTxDirection('all')}>
+                                    <span>{L.periodBalance}</span>
+                                    <MoneyAmount value={flowBalance} mark={mark} size="md" signed />
+                                    <i className="ledger-flow-mark" aria-hidden="true" />
+                                </button>
+                            </div>
+                            <div className="ledger-segment ledger-segment-3 ledger-tx-status" role="tablist" aria-label={L.reviewFilterAria}>
+                                {([['all', L.filterAll], ['open', L.filterOpen], ['done', L.filterDone]] as const).map(([id, label]) => (
+                                    <button key={id} type="button" role="tab" aria-selected={statusFilter === id} className={statusFilter === id ? 'is-on' : ''} onClick={() => setStatusFilter(id)}>{label}</button>
+                                ))}
+                            </div>
+                            {(feedKind || categoryFilter !== ALL_CATEGORIES || (accountFilter !== ALL_ACCOUNTS && filteredAccountName)) && (
+                                <div className="ledger-filter-row ledger-tx-filters">
                                     {feedKind && (
                                         <button type="button" className="is-on" onClick={() => setFeedKind('')}>
                                             {feedKind === 'in' ? L.statsIn : feedKind === 'other' ? L.statsOther : L.statsOut} ×
@@ -2864,7 +2956,7 @@ export default function LedgerApp() {
                                         <button type="button" className="is-on" onClick={() => setAccountFilter(ALL_ACCOUNTS)}>{L.filterAccount} {filteredAccountName} ×</button>
                                     )}
                                 </div>
-                            </section>
+                            )}
                             {spendParts.length > 0 && (
                                 <section className="ledger-card">
                                     <h2>{L.categoryPeriod} · {periodLabel}</h2>
@@ -2890,12 +2982,12 @@ export default function LedgerApp() {
                                     bounds={bounds}
                                     spendByDay={spendByDay}
                                     selected={calendarDay || bounds.end}
-                                    onSelect={(day) => { setCalendarDay(day); chooseDayRange(day); }}
+                                    onSelect={setCalendarDay}
                                 />
                             </Fold>
                             <section className="ledger-panel">
                                 <div className="ledger-panel-head">
-                                    <h2>{txView === 'calendar' && calendarDay ? dayLabel(calendarDay, locale, L) : periodLabel}</h2>
+                                    <h2>{txView === 'calendar' && calendarDay ? dayLabel(calendarDay, locale, L) : txHeading}</h2>
                                     <span className="ledger-topbar-meta">{L.periodSpend} <MoneyAmount value={periodOut} mark={mark} size="sm" /> · {L.periodIncome} <MoneyAmount value={periodIn} mark={mark} size="sm" /></span>
                                 </div>
                                 {shownEntries.length === 0 ? (
@@ -3426,17 +3518,17 @@ function SpendCalendar({
     selected: string;
     onSelect: (day: string) => void;
 }) {
-    const anchor = new Date(`${bounds.end}T00:00:00`);
+    const anchor = new Date(`${bounds.start}T00:00:00`);
     const year = anchor.getFullYear();
     const month = anchor.getMonth();
     const cells = calendarCells(year, month);
     const monthLabel = locale === 'en'
-        ? anchor.toLocaleString('en-US', { month: 'long', year: 'numeric' })
-        : `${year}年${month + 1}月`;
+        ? anchor.toLocaleString('en-US', { month: 'short' })
+        : `${month + 1}月`;
 
     return (
         <section className="ledger-panel ledger-calendar">
-            <h2>{L.txViewCalendar} · {monthLabel}</h2>
+            <h2>{monthLabel}</h2>
             <div className="ledger-calendar-week" aria-hidden="true">
                 {L.weekday.map((label) => <span key={label}>{label}</span>)}
             </div>
