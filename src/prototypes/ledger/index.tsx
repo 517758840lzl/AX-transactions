@@ -4,7 +4,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import brandMark from './assets/brand-mark.png';
-import entryBook from './assets/entry-book.png';
 import bannerBars from './assets/banner-bars.png';
 import bannerRing from './assets/banner-ring.png';
 import emptyNote from './assets/empty-note.png';
@@ -65,7 +64,7 @@ const ALL_ACCOUNTS = '*';
 
 type Scope = 'mine' | 'family';
 type PageId = 'dashboard' | 'transactions' | 'accounts' | 'me';
-type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'year' | 'goals' | 'goal' | 'sparks' | 'spark' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder' | 'cloud';
+type Panel = 'none' | 'entry' | 'account' | 'accountDetail' | 'profile' | 'filter' | 'budget' | 'transfer' | 'privacy' | 'about' | 'disclaimer' | 'year' | 'goals' | 'goal' | 'sparks' | 'spark' | 'language' | 'currency' | 'categories' | 'categoryForm' | 'worth' | 'removed' | 'export' | 'reminder' | 'cloud';
 type TxView = 'list' | 'calendar';
 type PeriodMode = 'today' | 'month' | 'range';
 type AccountsWindow = 7 | 30;
@@ -2194,6 +2193,9 @@ export default function LedgerApp() {
                             <iframe className="ledger-privacy-frame" title={L.privacy} src="/prototypes/ledger/privacy.html" />
                         </div>
                     )}
+                    {(panel === 'about' || panel === 'disclaimer') && (
+                        <CompanyPage L={L} kind={panel} onBack={() => setPanel('none')} />
+                    )}
                     {panel === 'language' && (
                         <>
                             <SubpageHead L={L} title={L.language} onBack={() => setPanel('none')} />
@@ -2591,7 +2593,13 @@ export default function LedgerApp() {
                                 </button>
                             </div>
                             <section className="ledger-toolbar" aria-label={L.filter}>
-                                <input className="ledger-search" value={search} placeholder={L.searchPlaceholder} onChange={(event) => setSearch(event.target.value)} aria-label={L.searchAria} />
+                                <label className="ledger-search">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle cx="11" cy="11" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                                        <path d="M15.6 15.6 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    </svg>
+                                    <input value={search} placeholder={L.searchPlaceholder} onChange={(event) => setSearch(event.target.value)} aria-label={L.searchAria} />
+                                </label>
                                 <div className="ledger-segment ledger-tx-view" role="tablist" aria-label={L.transactions}>
                                     <button type="button" role="tab" aria-selected={txView === 'list'} className={txView === 'list' ? 'is-on' : ''} onClick={() => setTxView('list')}>{L.txViewList}</button>
                                     <button type="button" role="tab" aria-selected={txView === 'calendar'} className={txView === 'calendar' ? 'is-on' : ''} onClick={() => { setTxView('calendar'); if (!calendarDay) setCalendarDay(bounds.end); }}>{L.txViewCalendar}</button>
@@ -2878,6 +2886,10 @@ export default function LedgerApp() {
                                 <SettingsLink title={L.clearBook} danger onClick={() => setClearAsk(true)} />
                             </section>
                             <section className="ledger-card ledger-settings">
+                                <SettingsLink title={L.about} onClick={() => setPanel('about')} />
+                                <div className="ledger-settings-divider" role="presentation" />
+                                <SettingsLink title={L.disclaimer} onClick={() => setPanel('disclaimer')} />
+                                <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.privacy} onClick={() => setPanel('privacy')} />
                             </section>
                             <input
@@ -2897,7 +2909,17 @@ export default function LedgerApp() {
 
                 {showFab && (
                     <button type="button" className="ledger-fab" aria-label={L.fabLabel} onClick={() => openEntry()}>
-                        <img src={entryBook} alt="" />
+                        <span className="ledger-pen" aria-hidden="true">
+                            <svg viewBox="0 0 34 34">
+                                <path className="ledger-pen-line" d="M8 24 Q14 22 24 12" />
+                                <g className="ledger-pen-body">
+                                    <g transform="rotate(48)">
+                                        <rect x="-13" y="-2.1" width="11" height="4.2" rx="2" fill="#fff" />
+                                        <path d="M0 0 L-3.4 -2.3 L-3.4 2.3 Z" fill="#fff" />
+                                    </g>
+                                </g>
+                            </svg>
+                        </span>
                     </button>
                 )}
                 </div>
@@ -3523,6 +3545,41 @@ function AccountIntro({ L }: { L: Copy }) {
                 </div>
             ))}
         </div>
+    );
+}
+
+function CompanyPage({ L, kind, onBack }: { L: Copy; kind: 'about' | 'disclaimer'; onBack: () => void }) {
+    const lines = (text: string) => text.split('\n').filter(Boolean);
+    return (
+        <>
+            <SubpageHead L={L} title={kind === 'about' ? L.about : L.disclaimer} onBack={onBack} />
+            {kind === 'about' ? (
+                <>
+                    <section className="ledger-card ledger-company">
+                        <h2>SpendLogBook</h2>
+                        <p>{L.aboutLead}</p>
+                    </section>
+                    <section className="ledger-card ledger-company">
+                        <h2>{L.aboutDoesTitle}</h2>
+                        <ul className="ledger-note-list">{lines(L.aboutDoes).map((line) => <li key={line}>{line}</li>)}</ul>
+                    </section>
+                    <section className="ledger-card ledger-company">
+                        <h2>{L.aboutNotTitle}</h2>
+                        <ul className="ledger-note-list">{lines(L.aboutNot).map((line) => <li key={line}>{line}</li>)}</ul>
+                    </section>
+                </>
+            ) : (
+                <section className="ledger-card ledger-company">
+                    {lines(L.disclaimerBody).map((line) => <p key={line}>{line}</p>)}
+                </section>
+            )}
+            <section className="ledger-card ledger-company">
+                <p><b>{L.aboutOperator}</b><br />LIGACAO VITAL - COMERCIO E SERVICOS, (SU), LDA</p>
+                <p><b>{L.aboutMail}</b><br /><a className="ledger-mail" href="mailto:office@ligacaovital.com">office@ligacaovital.com</a></p>
+                <p>{L.aboutWrite}</p>
+                <p>© 2026 LIGACAO VITAL - COMERCIO E SERVICOS, (SU), LDA. All rights reserved.</p>
+            </section>
+        </>
     );
 }
 
