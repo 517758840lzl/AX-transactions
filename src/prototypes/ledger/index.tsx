@@ -956,6 +956,15 @@ function clockText(hour: number, minute: number) {
     return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+function withOwnCash(book: Book): Book {
+    if (book.accounts.some((account) => !account.id.startsWith('sample-'))) return book;
+    const copy = strings(normalizeLocale(book.locale));
+    return {
+        ...book,
+        accounts: [...book.accounts, { id: createId(), name: copy.accountKindCash, opening: 0, kind: 'cash' }],
+    };
+}
+
 function blankEntry(book: Book): EntryDraft {
     return {
         id: '',
@@ -1078,7 +1087,7 @@ export default function LedgerApp() {
 
     useEffect(() => {
         openStoredBook().then((loaded) => {
-            writeBook(loaded);
+            writeBook(withOwnCash(loaded));
             setReady(true);
         });
     }, []);
@@ -1605,7 +1614,7 @@ export default function LedgerApp() {
     }
 
     function openAccountsBoard() {
-        accountsReturn.current = panel === 'export' ? 'export' : 'entry';
+        accountsReturn.current = panel === 'export' ? 'export' : panel === 'none' ? 'none' : 'entry';
         setPanel('accountsBoard');
     }
 
@@ -3152,6 +3161,8 @@ export default function LedgerApp() {
                             <RecordMarks days={loggedDayCount} L={L} onAdd={openNewRecord} />
                             <section className="ledger-card ledger-settings">
                                 <h2 className="ledger-settings-kicker">{L.meLedger}</h2>
+                                <SettingsLink title={L.accounts} value={String(ownAccounts.length)} onClick={openAccountsBoard} />
+                                <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.yearReport} onClick={openYear} />
                                 <div className="ledger-settings-divider" role="presentation" />
                                 <SettingsLink title={L.monthlyBudget} value={book.hideAmounts ? '***' : (budget != null && budget > 0 ? money(budget, mark) : L.budgetUnset)} onClick={openBudgetPanel} />
