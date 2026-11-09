@@ -152,23 +152,21 @@ function sparkKindLabel(kind: SparkKind, L: Copy) {
 
 function paperCue(locale: Locale, kind: SparkKind) {
     const zh = {
-        lead: '从一笔开始',
         tally: (count: number) => `${count} 字`,
-        idea: { hint: '还有一笔没记上', lines: ['这笔下次能少花吗', '想先记下的一笔'] },
-        diary: { hint: '今天这笔钱花在哪', lines: ['为什么会花这一笔', '哪一笔最不该花'] },
-        thought: { hint: '这笔花得值不值', lines: ['还能再省下来吗', '先记着，回头再对'] },
-        summary: { hint: '今天花得最多的是', lines: ['今天一共出去多少', '明天想少花的一笔'] },
+        idea: '这笔该不该花',
+        diary: '今天花在哪了',
+        thought: '花得值不值',
+        summary: '今天花了多少',
     };
     const en = {
-        lead: 'Start from one expense',
         tally: (count: number) => `${count} characters`,
-        idea: { hint: 'An expense not written down yet', lines: ['Could the next one cost less?', 'One entry to set down first'] },
-        diary: { hint: 'Where this money went today', lines: ['Why this expense went out', 'The one that should not have'] },
-        thought: { hint: 'Was this expense worth it', lines: ['Can a little more be kept back?', 'Write it now, check it later'] },
-        summary: { hint: 'Where most of the money went today', lines: ['How much went out today', 'What to spend less on tomorrow'] },
+        idea: 'Should this be spent',
+        diary: 'Where did it go today',
+        thought: 'Was it worth it',
+        summary: 'How much was spent today',
     };
     const pack = locale === 'en' ? en : zh;
-    return { lead: pack.lead, tally: pack.tally, ...pack[kind] };
+    return { hint: pack[kind], tally: pack.tally };
 }
 
 function sparkDayChip(iso: string, locale: Locale, L: Copy) {
@@ -2707,16 +2705,6 @@ export default function LedgerApp() {
                                             </button>
                                             <button type="button" className="ledger-paper-shot-x" aria-label={L.sparkPictureRemove} onClick={() => setSparkImage('')}>×</button>
                                         </div>
-                                    )}
-                                    {!sparkBody.trim() && (
-                                        <>
-                                            <p className="ledger-paper-lead">{paperCue(locale, sparkKind).lead}</p>
-                                            <div className="ledger-paper-cues">
-                                                {paperCue(locale, sparkKind).lines.map((line) => (
-                                                    <button key={line} type="button" onClick={() => setSparkBody(line)}>{line}</button>
-                                                ))}
-                                            </div>
-                                        </>
                                     )}
                                     <div className="ledger-paper-rule">
                                         <span aria-hidden="true"><i /><i /><i /></span>
