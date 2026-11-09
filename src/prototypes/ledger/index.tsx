@@ -238,22 +238,8 @@ function sparkMatches(spark: Spark, query: string, L: Copy) {
     return spark.tags.some((tag) => tag.toLowerCase().includes(needle));
 }
 
-function entryMatchesQuery(entry: Entry, query: string) {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return true;
-    return entry.title.toLowerCase().includes(needle) || entry.date.includes(needle);
-}
-
-function sparkTimelineDays(sparks: Spark[], entries: Entry[], query: string, includeEntryDays: boolean) {
-    const days = new Set(sparks.map((spark) => spark.writtenOn));
-    if (includeEntryDays) {
-        for (const entry of entries) {
-            if (entry.id.startsWith('transfer-')) continue;
-            if (!entryMatchesQuery(entry, query)) continue;
-            days.add(entry.date);
-        }
-    }
-    return [...days].sort((left, right) => (left < right ? 1 : -1));
+function sparkTimelineDays(sparks: Spark[]) {
+    return [...new Set(sparks.map((spark) => spark.writtenOn))].sort((left, right) => (left < right ? 1 : -1));
 }
 
 function SparkCard({ spark, L, onOpen, onFavorite }: { spark: Spark; L: Copy; onOpen: () => void; onFavorite: () => void }) {
@@ -2648,18 +2634,16 @@ export default function LedgerApp() {
                                     ))}
                                 </div>
                             </div>
-                            {sparkTimeline ? sparkTimelineDays(visibleSparks, book.entries, sparkQuery, sparkFilter === 'all').map((day) => (
+                            {visibleSparks.length === 0 ? (
+                                <div className="ledger-spark-shelf-empty">
+                                    <i aria-hidden="true" />
+                                    <p>{sparkQuery.trim() || sparkFilter === 'favorite' ? L.sparkShelfNone : L.sparkShelfEmpty}</p>
+                                </div>
+                            ) : sparkTimeline ? sparkTimelineDays(visibleSparks).map((day) => (
                                 <section key={day} className="ledger-spark-day">
                                     <h2>{day === todayIso() ? L.dayToday : day === yesterdayIso() ? L.dayYesterday : day}</h2>
                                     {visibleSparks.filter((spark) => spark.writtenOn === day).map((spark) => (
                                         <SparkCard key={spark.id} spark={spark} L={L} onOpen={() => openSpark(spark)} onFavorite={() => toggleSparkFavorite(spark)} />
-                                    ))}
-                                    {sparkFilter === 'all' && book.entries.filter((entry) => entry.date === day && !entry.id.startsWith('transfer-') && entryMatchesQuery(entry, sparkQuery)).map((entry) => (
-                                        <button key={entry.id} type="button" className="ledger-spark-entry" onClick={() => openEntry(entry)}>
-                                            <CategoryBadge mark={categoryKey(entry.category, book.categoryMarks)} small />
-                                            <b>{entry.title}</b>
-                                            <span>{book.hideAmounts ? '***' : `${entry.direction === 'out' ? '−' : '+'}${money(entry.amount, mark)}`}</span>
-                                        </button>
                                     ))}
                                 </section>
                             )) : sparkGroups(visibleSparks, L).map((group) => (
@@ -3571,17 +3555,17 @@ function TxRow({ L, entry, accounts, marks, mark, onOpen, onToggle }: { L: Copy;
     const value = signedValue(entry);
     return (
         <li className="ledger-tx">
-            <CategoryBadge mark={categoryKey(entry.category, marks)} row />
             <button type="button" className="ledger-tx-main" onClick={() => onOpen(entry)}>
-                <b>{entry.title}</b>
-                <span>{[entry.category, account?.name?.trim() ?? '', entry.shared ? L.familyTag : ''].filter(Boolean).join(' · ')}</span>
-            </button>
-            <div className="ledger-tx-side">
+                <CategoryBadge mark={categoryKey(entry.category, marks)} row />
+                <span className="ledger-tx-copy">
+                    <b>{entry.title}</b>
+                    <span>{[entry.category, account?.name?.trim() ?? '', entry.shared ? L.familyTag : ''].filter(Boolean).join(' · ')}</span>
+                </span>
                 <MoneyAmount value={value} mark={mark} size="md" signed />
-                <button type="button" className={`ledger-review-btn ${entry.checked ? 'is-done' : 'is-open'}`} onClick={() => onToggle(entry.id)}>
-                    {entry.checked ? L.checked : L.unchecked}
-                </button>
-            </div>
+            </button>
+            <button type="button" className={`ledger-review-btn ${entry.checked ? 'is-done' : 'is-open'}`} onClick={() => onToggle(entry.id)}>
+                {entry.checked ? L.checked : L.unchecked}
+            </button>
         </li>
     );
 }
@@ -4050,11 +4034,19 @@ function YearReportPanel({
 
     return (
         <>
-            <SubpageHead L={L} title={`${year} ${L.yearReport}`} onBack={onBack} />
-            <div className="ledger-year-nav">
-                <button type="button" onClick={onPrev}>{L.yearPrev}</button>
-                <button type="button" onClick={onNext} disabled={nextDisabled}>{L.yearNext}</button>
-            </div>
+            <header className="ledger-subhead ledger-year-head">
+                <button type="button" className="ledger-back-btn" onClick={onBack} aria-label={L.back}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M19 12H5M12 19 5 12 12 5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                </button>
+                <h1>{year} {L.yearReport}</h1>
+                <div className="ledger-year-step">
+                    <button type="button" aria-label={L.yearPrev} onClick={onPrev}>‹</button>
+                    <span>{year}</span>
+                    <button type="button" aria-label={L.yearNext} onClick={onNext} disabled={nextDisabled}>›</button>
+                </div>
+            </header>
             <div className="ledger-year-kinds" role="tablist">
                 <button type="button" role="tab" aria-selected={kind === 'out'} className={kind === 'out' ? 'is-on' : ''} onClick={() => chooseKind('out')}>
                     <span>{L.yearSpend}</span>

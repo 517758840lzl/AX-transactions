@@ -1031,12 +1031,10 @@
 }
 
 .ledger-tx {
-  display: grid;
-  grid-template-columns: 40px 1fr auto;
-  gap: 12px;
+  display: flex;
   align-items: center;
+  gap: 12px;
   min-height: 56px;
-  padding: 8px 0;
   border-top: 1px solid rgba(240, 221, 227, 0.85);
 }
 
@@ -1056,13 +1054,23 @@
 }
 
 .ledger-tx-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  min-height: 56px;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
-  padding: 0;
+  padding: 8px 0;
   cursor: pointer;
+}
+
+.ledger-tx-copy {
+  flex: 1;
   min-width: 0;
 }
 
@@ -1075,22 +1083,22 @@
   text-overflow: ellipsis;
 }
 
-.ledger-tx-main span {
+.ledger-tx-copy span {
   display: block;
   margin-top: 2px;
   font-size: 12px;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.ledger-tx-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 5px;
+.ledger-tx-main .ledger-money {
+  flex: none;
 }
 
-.ledger-tx-side .ledger-money--md,
-.ledger-tx-side .ledger-money--md .ledger-money-value {
+.ledger-tx-main .ledger-money--md,
+.ledger-tx-main .ledger-money--md .ledger-money-value {
   font-weight: 600;
 }
 
@@ -3427,26 +3435,47 @@ button.ledger-choice-trigger {
   color: var(--muted);
 }
 
-.ledger-year-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.ledger-year-nav button {
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ink);
+.ledger-year-head h1 {
+  flex: 1;
+  min-width: 0;
+  font-size: 22px;
+  line-height: 1.2;
   white-space: nowrap;
-  cursor: pointer;
-  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.ledger-year-nav button:disabled {
+.ledger-year-step {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin-left: 12px;
+  padding: 2px 4px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.ledger-year-step span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ledger-year-step button {
+  width: 28px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ledger-year-step button:disabled {
   color: var(--faint);
   cursor: default;
 }
@@ -4176,6 +4205,43 @@ button.ledger-choice-trigger {
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
+}
+
+.ledger-spark-shelf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 28px 18px 0;
+  text-align: center;
+}
+
+.ledger-spark-shelf-empty i {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(255, 179, 199, 0.45);
+  color: #e85d75;
+  display: grid;
+  place-items: center;
+}
+
+.ledger-spark-shelf-empty i::before {
+  content: "";
+  width: 22px;
+  height: 26px;
+  border: 1.6px solid currentColor;
+  border-radius: 3px;
+  background:
+    linear-gradient(currentColor, currentColor) 5px 7px / 12px 1.6px no-repeat,
+    linear-gradient(currentColor, currentColor) 5px 12px / 12px 1.6px no-repeat,
+    linear-gradient(currentColor, currentColor) 5px 17px / 8px 1.6px no-repeat;
+}
+
+.ledger-spark-shelf-empty p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted);
 }
 
 .ledger-spark-day h2 {
@@ -5127,8 +5193,8 @@ label.ledger-pill {
 }
 
 .ledger-stats-step button {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 36px;
   border: 0;
   border-radius: 999px;
   background: transparent;
